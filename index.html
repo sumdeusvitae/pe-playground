@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anthropic Prompt Engineering — Interactive Playground</title>
+<style>
+  :root {
+    --bg: #0f1117; --bg2: #1a1d2e; --bg3: #252840; --bg4: #2e3352;
+    --accent: #d97757; --accent2: #8b7cf8; --accent3: #5cc8a0;
+    --text: #e8eaf6; --text-dim: #9ba3c0; --border: #2e3352;
+    --code-bg: #0d1117; --tag-bg: #2a1f3d; --tag-color: #c084fc;
+    --sidebar-w: 260px;
+    --run-color: #5cc8a0; --run-bg: rgba(92,200,160,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+  /* ── PROGRESS ── */
+  #progress { position: fixed; top: 0; left: 0; width: 0; height: 3px; background: var(--accent); z-index: 999; transition: width .1s; }
+
+  /* ── API KEY BANNER ── */
+  #api-banner {
+    position: fixed; top: 0; left: var(--sidebar-w); right: 0;
+    background: linear-gradient(90deg, #2a1a0e, #3a2010);
+    border-bottom: 1px solid var(--accent);
+    padding: 8px 24px; display: flex; align-items: center; gap: 12px;
+    z-index: 90; font-size: 13px; color: var(--text-dim);
+    transition: all .3s;
+  }
+  #api-banner.ok { background: linear-gradient(90deg, #0e2a1a, #102a1e); border-color: var(--accent3); }
+  #api-banner .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  #api-banner.ok .dot { background: var(--accent3); }
+  #api-banner span { flex: 1; }
+  #api-banner button {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; transition: all .2s;
+  }
+  #api-banner button:hover { background: var(--bg4); }
+  @media (max-width: 768px) { #api-banner { left: 0; } }
+
+  /* ── API KEY MODAL ── */
+  #modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.7); z-index: 500;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #modal-overlay.show { display: flex; }
+  #api-modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px; max-width: 500px; width: 90%;
+    position: relative;
+  }
+  #api-modal h2 { font-size: 20px; margin-bottom: 8px; }
+  #api-modal h2 span { color: var(--accent3); }
+  #api-modal p { color: var(--text-dim); font-size: 13px; line-height: 1.7; margin-bottom: 20px; }
+  #api-modal .privacy-note {
+    background: rgba(92,200,160,.08); border: 1px solid rgba(92,200,160,.2);
+    border-radius: 8px; padding: 12px 16px; font-size: 12px; color: var(--accent3);
+    margin-bottom: 20px; line-height: 1.6;
+  }
+  #api-modal label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: block; }
+  #api-modal input[type=password], #api-modal input[type=text] {
+    width: 100%; padding: 10px 14px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 14px; font-family: monospace; outline: none;
+    transition: border-color .2s; margin-bottom: 16px;
+  }
+  #api-modal input:focus { border-color: var(--accent2); }
+  #api-modal .modal-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #api-modal .btn-save {
+    background: var(--accent2); color: white; border: none;
+    padding: 10px 24px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 600; transition: opacity .2s;
+  }
+  #api-modal .btn-save:hover { opacity: .85; }
+  #api-modal .btn-clear {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); padding: 10px 16px; border-radius: 8px;
+    cursor: pointer; font-size: 13px;
+  }
+  #api-modal .btn-close {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text-dim); width: 30px; height: 30px;
+    border-radius: 6px; cursor: pointer; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #api-modal a { color: var(--accent2); text-decoration: none; }
+  #api-modal a:hover { text-decoration: underline; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border);
+    position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
+    padding: 20px 0; z-index: 100; transition: transform .3s;
+  }
+  #sidebar .logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  #sidebar .logo h2 { font-size: 14px; color: var(--accent); font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+  #sidebar .logo span { font-size: 11px; color: var(--text-dim); }
+  #sidebar nav a {
+    display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+    color: var(--text-dim); text-decoration: none; font-size: 13px;
+    transition: all .2s; border-left: 3px solid transparent;
+  }
+  #sidebar nav a:hover, #sidebar nav a.active { color: var(--text); background: var(--bg3); border-left-color: var(--accent); }
+  #sidebar nav a .num { font-size: 11px; background: var(--bg3); padding: 2px 6px; border-radius: 10px; color: var(--accent2); font-weight: 600; min-width: 28px; text-align: center; }
+  .section-label { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); font-weight: 600; }
+
+  /* ── MAIN ── */
+  #main { margin-left: var(--sidebar-w); flex: 1; padding-top: 40px; }
+
+  /* ── HERO ── */
+  #hero {
+    background: linear-gradient(135deg, #1a1d2e, #252840, #1a2040);
+    padding: 50px 60px 44px; border-bottom: 1px solid var(--border); position: relative; overflow: hidden;
+  }
+  #hero::before { content: ''; position: absolute; top: -60px; right: -60px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(137,92,246,.15) 0%, transparent 70%); pointer-events: none; }
+  #hero h1 { font-size: 32px; font-weight: 800; line-height: 1.2; }
+  #hero h1 span { color: var(--accent); }
+  #hero p { color: var(--text-dim); margin-top: 10px; max-width: 600px; font-size: 15px; }
+  .hero-stats { display: flex; gap: 28px; margin-top: 24px; flex-wrap: wrap; }
+  .stat .n { font-size: 26px; font-weight: 800; color: var(--accent2); }
+  .stat .l { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+  .api-status-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 18px; background: var(--bg3); border: 1px solid var(--border);
+    padding: 7px 14px; border-radius: 20px; font-size: 13px; cursor: pointer;
+    transition: border-color .2s;
+  }
+  .api-status-badge:hover { border-color: var(--accent2); }
+  .api-status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .api-status-badge.ok .dot { background: var(--accent3); }
+  .api-status-badge.ok { border-color: rgba(92,200,160,.3); }
+
+  /* ── SEARCH ── */
+  #search-bar { padding: 16px 60px; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 40px; z-index: 50; }
+  #search-bar input {
+    width: 100%; padding: 9px 18px 9px 40px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 14px; outline: none; transition: border-color .2s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239ba3c0' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 14px center;
+  }
+  #search-bar input:focus { border-color: var(--accent2); }
+  #search-bar input::placeholder { color: var(--text-dim); }
+
+  /* ── CONTENT ── */
+  #content { padding: 44px 60px 80px; max-width: 1000px; }
+
+  /* ── SECTION CARDS ── */
+  .section-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 26px; overflow: hidden; }
+  .section-header { padding: 18px 22px; display: flex; align-items: center; gap: 14px; cursor: pointer; user-select: none; transition: background .2s; }
+  .section-header:hover { background: var(--bg3); }
+  .section-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .section-header h2 { font-size: 16px; font-weight: 700; flex: 1; }
+  .section-header .badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--bg3); color: var(--text-dim); border: 1px solid var(--border); }
+  .toggle-btn { width: 26px; height: 26px; border-radius: 6px; background: var(--bg3); display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 16px; transition: transform .3s, color .2s; flex-shrink: 0; }
+  .section-card.open .toggle-btn { transform: rotate(180deg); color: var(--accent); }
+  .section-body { display: none; padding: 0 22px 22px; border-top: 1px solid var(--border); }
+  .section-card.open .section-body { display: block; }
+  .desc { color: var(--text-dim); margin: 14px 0 12px; font-size: 14px; line-height: 1.7; }
+  h3 { font-size: 12px; font-weight: 700; color: var(--accent2); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .5px; }
+  ul { padding-left: 18px; }
+  li { color: var(--text-dim); font-size: 14px; line-height: 1.8; }
+  li strong { color: var(--text); }
+
+  /* ── CODE BLOCKS ── */
+  .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; overflow: hidden; }
+  .code-header { padding: 7px 12px; background: var(--bg3); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+  .code-header .lang { color: var(--accent2); font-weight: 600; }
+  .code-header .copy-btn { margin-left: auto; background: var(--bg2); border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all .2s; }
+  .code-header .copy-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .code-header .copy-btn.copied { background: var(--accent3); color: white; border-color: var(--accent3); }
+  pre { padding: 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; font-family: 'JetBrains Mono','Fira Code','Cascadia Code',monospace; }
+  .kw { color: #c084fc; } .str { color: #86efac; } .cmt { color: #6b7280; font-style: italic; } .fn { color: #60a5fa; } .num { color: #fbbf24; } .tag-c { color: #f97316; }
+
+  /* ── TIPS/WARN ── */
+  .tip { background: rgba(92,200,160,.06); border-left: 3px solid var(--accent3); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
+  .tip strong { color: var(--accent3); }
+  .warn { background: rgba(217,119,87,.06); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
+  .warn strong { color: var(--accent); }
+
+  /* ── BEFORE/AFTER ── */
+  .example-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+  @media (max-width: 700px) { .example-pair { grid-template-columns: 1fr; } }
+  .example-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; }
+  .example-box .label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; padding: 2px 7px; border-radius: 4px; display: inline-block; }
+  .bad .label { background: rgba(239,68,68,.15); color: #f87171; }
+  .good .label { background: rgba(92,200,160,.15); color: var(--accent3); }
+  .example-box p { color: var(--text-dim); line-height: 1.6; font-style: italic; font-size: 13px; }
+
+  /* ── EXERCISES ── */
+  .exercise { background: var(--bg3); border: 1px solid var(--accent2); border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+  .exercise .ex-title { font-size: 13px; font-weight: 700; color: var(--accent2); margin-bottom: 6px; }
+  .exercise p { font-size: 13px; color: var(--text-dim); }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+  .tag { background: var(--tag-bg); color: var(--tag-color); padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid rgba(192,132,252,.2); }
+
+  /* ── TRY-IT PANEL ── */
+  .try-it { background: rgba(139,124,248,.05); border: 1px solid rgba(139,124,248,.25); border-radius: 10px; margin-top: 18px; overflow: hidden; }
+  .try-it-header { padding: 10px 16px; background: rgba(139,124,248,.08); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .try-it-header span { font-size: 13px; font-weight: 700; color: var(--accent2); flex: 1; }
+  .model-sel { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); padding: 4px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .run-btn {
+    background: var(--run-bg); border: 1px solid var(--run-color); color: var(--run-color);
+    padding: 5px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700;
+    transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .run-btn:hover { background: var(--run-color); color: #0f1117; }
+  .run-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .run-btn .spin { animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .try-it-fields { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .field-group label { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; display: block; }
+  .field-group textarea {
+    width: 100%; padding: 8px 12px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+    font-size: 13px; font-family: 'JetBrains Mono','Fira Code',monospace;
+    resize: vertical; min-height: 60px; outline: none; transition: border-color .2s; line-height: 1.5;
+  }
+  .field-group textarea:focus { border-color: var(--accent2); }
+  .field-group textarea.sys { min-height: 50px; color: var(--accent2); }
+  .response-area { border-top: 1px solid var(--border); }
+  .response-header { padding: 8px 16px; background: rgba(0,0,0,.2); display: flex; align-items: center; gap: 8px; }
+  .response-header span { font-size: 12px; color: var(--accent3); font-weight: 700; flex: 1; }
+  .copy-resp { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .response-text {
+    padding: 14px 16px; font-size: 13.5px; line-height: 1.75; color: var(--text);
+    white-space: pre-wrap; font-family: inherit; max-height: 400px; overflow-y: auto;
+  }
+  .response-text.error { color: #f87171; }
+  .response-text.loading { color: var(--text-dim); font-style: italic; }
+  .token-count { font-size: 11px; color: var(--text-dim); padding: 4px 16px 8px; }
+
+  /* ── PLAYGROUND SECTION ── */
+  #playground-section { background: linear-gradient(135deg, var(--bg2), var(--bg3)); border: 1px solid var(--border); border-radius: 16px; padding: 36px; margin-bottom: 36px; }
+  #playground-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  #playground-section h2 span { color: var(--accent2); }
+  #playground-section .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; }
+  .pg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .pg-grid { grid-template-columns: 1fr; } }
+  .pg-field label { font-size: 11px; font-weight: 700; color: var(--accent2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; display: block; }
+  .pg-field textarea, .pg-field select, .pg-field input[type=text] {
+    width: 100%; padding: 10px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 13px; font-family: 'JetBrains Mono','Fira Code',monospace;
+    resize: vertical; outline: none; transition: border-color .2s; line-height: 1.5;
+  }
+  .pg-field textarea:focus, .pg-field select:focus { border-color: var(--accent2); }
+  .pg-field.full { grid-column: 1 / -1; }
+  .pg-field textarea.tall { min-height: 140px; }
+  .pg-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pg-run-btn {
+    background: var(--accent2); color: white; border: none;
+    padding: 11px 28px; border-radius: 8px; cursor: pointer;
+    font-size: 14px; font-weight: 700; transition: opacity .2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pg-run-btn:hover { opacity: .85; }
+  .pg-run-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .pg-clear-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 11px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .pg-response-wrap { grid-column: 1 / -1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .pg-response-text { padding: 18px; font-size: 14px; line-height: 1.8; color: var(--text); white-space: pre-wrap; min-height: 80px; max-height: 500px; overflow-y: auto; }
+  .pg-response-text.empty { color: var(--text-dim); font-style: italic; font-size: 13px; }
+  .pg-response-header { padding: 8px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .pg-response-header span { flex: 1; color: var(--accent3); font-weight: 700; }
+  .pg-response-header .meta { color: var(--text-dim); }
+
+  /* ── CHEAT SHEET ── */
+  #cheatsheet { background: linear-gradient(135deg, var(--bg2), var(--bg3)); border: 1px solid var(--border); border-radius: 16px; padding: 36px; margin-top: 20px; }
+  #cheatsheet h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  #cheatsheet h2 span { color: var(--accent); }
+  #cheatsheet .subtitle { color: var(--text-dim); margin-bottom: 28px; font-size: 14px; }
+  .cs-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 14px; }
+  .cs-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; transition: border-color .2s; }
+  .cs-card:hover { border-color: var(--accent2); }
+  .cs-card .cs-icon { font-size: 22px; margin-bottom: 8px; }
+  .cs-card h4 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .cs-card p { font-size: 12px; color: var(--text-dim); line-height: 1.65; }
+  .cs-card code { font-size: 11px; background: var(--bg3); padding: 1px 5px; border-radius: 4px; color: var(--accent2); font-family: monospace; }
+  .cs-table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+  .cs-table th { text-align: left; padding: 9px 12px; background: var(--bg3); color: var(--accent2); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+  .cs-table td { padding: 9px 12px; font-size: 13px; color: var(--text-dim); border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cs-table td:first-child { color: var(--text); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .cs-table tr:last-child td { border-bottom: none; }
+  .cs-table tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* ── MISC ── */
+  #back-top { position: fixed; bottom: 28px; right: 28px; background: var(--accent); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 18px; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(217,119,87,.4); transition: transform .2s; z-index: 200; }
+  #back-top.visible { display: flex; }
+  #back-top:hover { transform: translateY(-2px); }
+  #menu-btn { display: none; position: fixed; top: 46px; left: 12px; z-index: 200; background: var(--bg2); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: 18px; align-items: center; justify-content: center; }
+  .highlight { background: rgba(217,119,87,.3); border-radius: 2px; padding: 0 2px; }
+  code { font-family: monospace; }
+  @media (max-width: 768px) {
+    #menu-btn { display: flex; }
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #main { margin-left: 0; }
+    #hero, #content { padding-left: 22px; padding-right: 22px; }
+    #search-bar { padding: 12px 22px; }
+    #search-bar { top: 36px; }
+    #api-banner { left: 0; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<button id="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- API KEY BANNER -->
+<div id="api-banner">
+  <div class="dot"></div>
+  <span id="banner-text">No API key set — prompts won't run until you add one.</span>
+  <button onclick="openModal()">Set API Key</button>
+</div>
+
+<!-- API KEY MODAL -->
+<div id="modal-overlay" onclick="closeModalOutside(event)">
+  <div id="api-modal">
+    <button class="btn-close" onclick="closeModal()">×</button>
+    <h2>Your <span>API Key</span></h2>
+    <p>Enter your Anthropic API key to run prompts live in this playground. You can get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.</p>
+    <div class="privacy-note">
+      🔒 <strong>Privacy guarantee:</strong> Your key is stored only in your browser's <code>localStorage</code>. It is never sent to any server other than <code>api.anthropic.com</code>. This site has no backend — you can inspect the source to verify.
+    </div>
+    <label>API Key</label>
+    <input type="password" id="key-input" placeholder="sk-ant-api03-…" autocomplete="off" onkeydown="if(event.key==='Enter')saveKey()">
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveKey()">Save Key</button>
+      <button class="btn-clear" onclick="clearKey()">Clear Saved Key</button>
+      <span id="modal-status" style="font-size:12px;color:var(--accent3)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="logo"><h2>PE Playground</h2><span>Anthropic 1P Tutorial</span></div>
+  <div class="section-label">Core Lessons</div>
+  <a href="#s00"><span class="num">00</span>Setup</a>
+  <a href="#s01"><span class="num">01</span>Basic Structure</a>
+  <a href="#s02"><span class="num">02</span>Clear & Direct</a>
+  <a href="#s03"><span class="num">03</span>Role Prompting</a>
+  <a href="#s04"><span class="num">04</span>Data + Instructions</a>
+  <a href="#s05"><span class="num">05</span>Output Formatting</a>
+  <a href="#s06"><span class="num">06</span>Think Step-by-Step</a>
+  <a href="#s07"><span class="num">07</span>Few-Shot Examples</a>
+  <a href="#s08"><span class="num">08</span>No Hallucinations</a>
+  <a href="#s09"><span class="num">09</span>Complex Prompts</a>
+  <div class="section-label">Appendix</div>
+  <a href="#s10_1"><span class="num">10.1</span>Prompt Chaining</a>
+  <a href="#s10_2"><span class="num">10.2</span>Tool Use</a>
+  <a href="#s10_3"><span class="num">10.3</span>Search & RAG</a>
+  <div class="section-label">Tools</div>
+  <a href="#playground-section"><span class="num">▶</span>Free Playground</a>
+  <a href="#cheatsheet"><span class="num">★</span>Cheat Sheet</a>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="hero">
+    <h1>Anthropic Prompt Engineering<br><span>Interactive Playground</span></h1>
+    <p>13 notebooks summarized with live runnable examples. Paste your API key and run any prompt directly in the browser — your key never leaves your device.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="n">13</div><div class="l">Notebooks</div></div>
+      <div class="stat"><div class="n">10</div><div class="l">Techniques</div></div>
+      <div class="stat"><div class="n">30+</div><div class="l">Examples</div></div>
+      <div class="stat"><div class="n">Live</div><div class="l">API Calls</div></div>
+    </div>
+    <div class="api-status-badge" id="hero-badge" onclick="openModal()">
+      <div class="dot"></div>
+      <span id="hero-badge-text">Click to set your API key</span>
+    </div>
+  </div>
+
+  <div id="search-bar">
+    <input type="text" id="search" placeholder="Search techniques, examples, concepts…" oninput="filterContent(this.value)">
+  </div>
+
+  <div id="content">
+
+    <!-- ══ 00 ══ -->
+    <div class="section-card open" id="s00">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1a2040">⚙️</div>
+        <div><h2>00 — Tutorial Setup</h2><div class="tags"><span class="tag">Setup</span><span class="tag">API</span><span class="tag">Python</span></div></div>
+        <span class="badge">Getting Started</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Install Anthropic SDK, configure your API key, and build the helper function used throughout the tutorial. Uses <strong>Claude Haiku</strong> at <strong>temperature=0</strong> for deterministic, reproducible outputs.</p>
+        <h3>Setup Code</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Python</span><span>get_completion helper</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code><span class="kw">import</span> anthropic
+
+client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
+
+<span class="kw">def</span> <span class="fn">get_completion</span>(prompt: <span class="fn">str</span>, system: <span class="fn">str</span> = <span class="str">""</span>):
+    message = client.messages.<span class="fn">create</span>(
+        model=<span class="str">"claude-haiku-4-5-20251001"</span>,
+        max_tokens=<span class="num">2000</span>,
+        temperature=<span class="num">0.0</span>,
+        system=system,
+        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}]
+    )
+    <span class="kw">return</span> message.content[<span class="num">0</span>].text</code></pre>
+        </div>
+        <div class="tip"><strong>Tip:</strong> temperature=0 gives consistent, reproducible answers — ideal for testing prompts.</div>
+        <div class="try-it" id="ti-s00">
+          <div class="try-it-header">
+            <span>🔬 Try it live</span>
+            <select class="model-sel" id="model-s00">
+              <option value="claude-haiku-4-5-20251001">Haiku (fast)</option>
+              <option value="claude-sonnet-4-6">Sonnet (powerful)</option>
+            </select>
+            <button class="run-btn" onclick="runTry('s00')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s00"></textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s00">Hi Claude! What model are you? Reply in one sentence.</textarea></div>
+            <div class="field-group"><label>Prefill (optional)</label><textarea id="pre-s00" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s00" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s00')">Copy</button></div>
+            <div class="response-text" id="resp-text-s00"></div>
+            <div class="token-count" id="tokens-s00"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 01 ══ -->
+    <div class="section-card open" id="s01">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1e1a30">🏗️</div>
+        <div><h2>01 — Basic Prompt Structure</h2><div class="tags"><span class="tag">Messages API</span><span class="tag">System Prompt</span><span class="tag">Roles</span></div></div>
+        <span class="badge">Fundamentals</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">The Messages API requires <strong>model</strong>, <strong>max_tokens</strong>, and <strong>messages</strong>. User/assistant turns must strictly alternate — always starting with "user". System prompts live in a separate parameter.</p>
+        <h3>Key Rules</h3>
+        <ul>
+          <li><strong>messages</strong> — array of <code>{"role": "user"|"assistant", "content": "..."}</code></li>
+          <li>Turns must alternate: user → assistant → user → …</li>
+          <li><strong>system</strong> — separate parameter, shapes every response</li>
+          <li><strong>temperature=0</strong> → deterministic · <strong>temperature=1</strong> → creative</li>
+        </ul>
+        <div class="warn"><strong>Rule:</strong> Never have two consecutive turns from the same role. Always start with "user".</div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Try it live</span>
+            <select class="model-sel" id="model-s01"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s01')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s01">Your answer should always be a series of critical thinking questions that further the conversation. Do not answer directly.</textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s01">Why is the sky blue?</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s01" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s01" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s01')">Copy</button></div>
+            <div class="response-text" id="resp-text-s01"></div>
+            <div class="token-count" id="tokens-s01"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 02 ══ -->
+    <div class="section-card open" id="s02">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1f2820">🎯</div>
+        <div><h2>02 — Being Clear and Direct</h2><div class="tags"><span class="tag">Clarity</span><span class="tag">Directness</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Claude responds best to clear, direct instructions. Treat it like a smart new employee — no assumed context. Use <strong>"Skip the preamble"</strong>, <strong>"If you had to pick one"</strong>, <strong>"Write at least N words"</strong>.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ Vague</span><p>"Write a haiku about robots."</p></div>
+          <div class="example-box good"><span class="label">✓ Clear</span><p>"Write a haiku about robots. Skip the preamble; go straight into the poem."</p></div>
+        </div>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ Wishy-washy</span><p>"Who is the best basketball player of all time?"</p></div>
+          <div class="example-box good"><span class="label">✓ Decisive</span><p>"Who is the best basketball player? If you absolutely had to pick one, who would it be?"</p></div>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Compare: vague vs direct</span>
+            <select class="model-sel" id="model-s02"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s02')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s02"></textarea></div>
+            <div class="field-group"><label>User Message (try editing for clarity)</label><textarea id="usr-s02">Write a haiku about robots. Skip the preamble; go straight into the poem.</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s02" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s02" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s02')">Copy</button></div>
+            <div class="response-text" id="resp-text-s02"></div>
+            <div class="token-count" id="tokens-s02"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 03 ══ -->
+    <div class="section-card open" id="s03">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1f1a30">🎭</div>
+        <div><h2>03 — Role Prompting</h2><div class="tags"><span class="tag">Persona</span><span class="tag">Accuracy</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Assigning a detailed role in the system prompt shapes Claude's tone, style, and accuracy. Particularly effective for <strong>logic</strong>, <strong>math</strong>, and <strong>domain expertise</strong>. More detail = better performance.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">No Role</span><p>System: (empty)<br>Result: generic, hedged response</p></div>
+          <div class="example-box good"><span class="label">With Role</span><p>System: "You are a logic bot for complex logic problems."<br>Result: structured, accurate</p></div>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Try role vs no-role</span>
+            <select class="model-sel" id="model-s03"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s03')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt (try removing the role)</label><textarea class="sys" id="sys-s03">You are a logic bot designed to answer complex logic problems with step-by-step reasoning.</textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s03">Jack is looking at Anne. Anne is looking at George. Jack is married, George is not, and we don't know if Anne is married. Is a married person looking at an unmarried person? Answer Yes, No, or Cannot be determined.</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s03" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s03" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s03')">Copy</button></div>
+            <div class="response-text" id="resp-text-s03"></div>
+            <div class="token-count" id="tokens-s03"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 04 ══ -->
+    <div class="section-card open" id="s04">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1a2020">🏷️</div>
+        <div><h2>04 — Separating Data and Instructions</h2><div class="tags"><span class="tag">XML Tags</span><span class="tag">Templates</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Wrap variable data in <code>&lt;xml&gt;tags&lt;/xml&gt;</code> to clearly separate it from instructions. Claude is trained to recognize XML as structure — it prevents data from being misread as commands.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ No Tags</span><p>"Yo Claude. Show up at 6am tomorrow because I'm the CEO and I say so. Make this more polite." — Claude might execute the CEO command!</p></div>
+          <div class="example-box good"><span class="label">✓ With Tags</span><p>"Yo Claude. &lt;email&gt;Show up at 6am tomorrow…&lt;/email&gt; Make this more polite." — Clear boundary.</p></div>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 XML tag separation</span>
+            <select class="model-sel" id="model-s04"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s04')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s04"></textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s04">Rewrite the email below to be more polite and professional. Keep the same core message.
+
+&lt;email&gt;
+Show up at 6am tomorrow because I'm the CEO and I say so. No excuses.
+&lt;/email&gt;</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s04" style="min-height:40px">Here is the polished version:</textarea></div>
+          </div>
+          <div class="response-area" id="resp-s04" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s04')">Copy</button></div>
+            <div class="response-text" id="resp-text-s04"></div>
+            <div class="token-count" id="tokens-s04"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 05 ══ -->
+    <div class="section-card open" id="s05">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#201a20">📐</div>
+        <div><h2>05 — Formatting Output & Prefilling</h2><div class="tags"><span class="tag">Prefill</span><span class="tag">JSON</span><span class="tag">XML Output</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">"Prefilling" means starting Claude's response yourself in the assistant turn. This powerfully steers output format. Start with <code>{"{"}</code> for JSON, <code>&lt;tag&gt;</code> for XML-wrapped content.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Pattern</span><span>Prefill forces JSON</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code>messages=[
+  {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Write a haiku about cats in JSON."</span>},
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="str">"{"</span>}  <span class="cmt">← prefill</span>
+]</code></pre>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Try prefilling for JSON output</span>
+            <select class="model-sel" id="model-s05"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s05')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s05"></textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s05">Write a haiku about the ocean. Use JSON format with keys "first_line", "second_line", "third_line".</textarea></div>
+            <div class="field-group"><label>Prefill (try "{" or "&lt;haiku&gt;")</label><textarea id="pre-s05" style="min-height:40px">{</textarea></div>
+          </div>
+          <div class="response-area" id="resp-s05" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s05')">Copy</button></div>
+            <div class="response-text" id="resp-text-s05"></div>
+            <div class="token-count" id="tokens-s05"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 06 ══ -->
+    <div class="section-card open" id="s06">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#201e18">🧠</div>
+        <div><h2>06 — Think Step by Step</h2><div class="tags"><span class="tag">Chain of Thought</span><span class="tag">Reasoning</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Ask Claude to reason in <code>&lt;thinking&gt;</code> tags before answering. Thinking must be written out — you can't ask Claude to "think silently." This dramatically improves accuracy on nuanced tasks.</p>
+        <div class="tip"><strong>Key insight:</strong> Claude is biased toward the second option presented. Writing out arguments for both sides before deciding counteracts this.</div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Sentiment analysis with thinking</span>
+            <select class="model-sel" id="model-s06"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s06')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s06">You are a savvy reader of movie reviews.</textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s06">Is this review positive or negative? First write the best arguments for each side in &lt;positive-argument&gt; and &lt;negative-argument&gt; tags, then give your final one-word answer.
+
+Review: "This movie blew my mind with its freshness and originality. In totally unrelated news, I have been living under a rock since the year 1900."</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s06" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s06" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s06')">Copy</button></div>
+            <div class="response-text" id="resp-text-s06"></div>
+            <div class="token-count" id="tokens-s06"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 07 ══ -->
+    <div class="section-card open" id="s07">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#18201f">📸</div>
+        <div><h2>07 — Few-Shot Prompting</h2><div class="tags"><span class="tag">Examples</span><span class="tag">Few-Shot</span></div></div>
+        <span class="badge">Core Skill</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Providing 2-5 input→output examples teaches Claude style, tone, and format far more effectively than lengthy instructions. Works for classification, style transfer, structured extraction.</p>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Few-shot parent bot</span>
+            <select class="model-sel" id="model-s07"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s07')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s07"></textarea></div>
+            <div class="field-group"><label>User Message (few-shot + question)</label><textarea id="usr-s07">Please complete the conversation by writing the next line, speaking as "A".
+
+Q: Is the tooth fairy real?
+A: Of course, sweetie. Wrap up your tooth and put it under your pillow tonight. There might be something waiting for you in the morning.
+
+Q: Will Santa bring me presents on Christmas?
+A:</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s07" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s07" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s07')">Copy</button></div>
+            <div class="response-text" id="resp-text-s07"></div>
+            <div class="token-count" id="tokens-s07"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 08 ══ -->
+    <div class="section-card open" id="s08">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#201818">🛡️</div>
+        <div><h2>08 — Avoiding Hallucinations</h2><div class="tags"><span class="tag">Accuracy</span><span class="tag">Uncertainty</span></div></div>
+        <span class="badge">Quality</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Give Claude explicit permission to say "I don't know." Without it, Claude will fabricate confident-sounding answers. Stack multiple anti-hallucination techniques for best results.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ No constraint</span><p>"Who is the heaviest hippo of all time?" → Claude invents a name and weight.</p></div>
+          <div class="example-box good"><span class="label">✓ Constrained</span><p>"… Only answer if you know with certainty. Otherwise say 'I don't have this information.'"</p></div>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Anti-hallucination test</span>
+            <select class="model-sel" id="model-s08"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s08')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s08"></textarea></div>
+            <div class="field-group"><label>User Message (try removing the constraint)</label><textarea id="usr-s08">&lt;question&gt;What was Matterport's exact subscriber base on May 31, 2020?&lt;/question&gt;
+
+If you don't know the answer or are uncertain about the precise figure, respond with "I don't have this information." Do not guess or approximate.</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s08" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s08" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s08')">Copy</button></div>
+            <div class="response-text" id="resp-text-s08"></div>
+            <div class="token-count" id="tokens-s08"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 09 ══ -->
+    <div class="section-card open" id="s09">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1e2020">🔬</div>
+        <div><h2>09 — Complex Prompts from Scratch</h2><div class="tags"><span class="tag">All Techniques</span><span class="tag">Production</span></div></div>
+        <span class="badge">Advanced</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Combine all techniques into a production-ready prompt. Start with every element (role + context + instructions + examples + XML data + format + constraints), then prune what doesn't help.</p>
+        <h3>Recommended Structure</h3>
+        <ul>
+          <li><strong>1. Role</strong> — system prompt persona</li>
+          <li><strong>2. Instructions</strong> — explicit task</li>
+          <li><strong>3. Examples</strong> — few-shot input/output pairs</li>
+          <li><strong>4. Input data</strong> — in XML tags</li>
+          <li><strong>5. Output format</strong> — XML or JSON spec</li>
+          <li><strong>6. Constraints</strong> — uncertainty handling</li>
+        </ul>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Full complex prompt</span>
+            <select class="model-sel" id="model-s09"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s09')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s09">You are an expert customer support classifier for AcmeCorp. Classify tickets accurately and empathetically. Always respond professionally.</textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s09">Classify the following support ticket into one of:
+(A) Pre-sale question  (B) Technical/broken item  (C) Billing  (D) Other
+
+Examples:
+&lt;ticket&gt;How much does the premium plan cost?&lt;/ticket&gt; → A
+&lt;ticket&gt;My app crashes every time I open it.&lt;/ticket&gt; → B
+&lt;ticket&gt;I was charged twice this month.&lt;/ticket&gt; → C
+
+Now classify:
+&lt;ticket&gt;I bought your product 2 days ago but it stopped working. The screen just shows a blank white page.&lt;/ticket&gt;
+
+Think through your reasoning in &lt;thinking&gt; tags first, then output &lt;answer&gt;X&lt;/answer&gt;.</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s09" style="min-height:40px">&lt;thinking&gt;</textarea></div>
+          </div>
+          <div class="response-area" id="resp-s09" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s09')">Copy</button></div>
+            <div class="response-text" id="resp-text-s09"></div>
+            <div class="token-count" id="tokens-s09"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 10.1 ══ -->
+    <div class="section-card open" id="s10_1">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#18201a">🔗</div>
+        <div><h2>10.1 — Chaining Prompts</h2><div class="tags"><span class="tag">Multi-Turn</span><span class="tag">Refinement</span></div></div>
+        <span class="badge">Appendix</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Pass Claude's previous response as context into a follow-up prompt. This lets Claude verify and improve its own work. Add safety clauses like "if already correct, return the original" to prevent over-correction.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Python</span><span>Multi-turn message array</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code>messages = [
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: first_user},
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: first_response},
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: second_user}
+]</code></pre>
+        </div>
+        <div class="tip"><strong>Note:</strong> In this playground, chaining requires two separate API calls. The section below lets you simulate turn 2 by pasting Claude's previous response as context.</div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Simulate chaining (turn 2)</span>
+            <select class="model-sel" id="model-s10_1"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s10_1')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s10_1"></textarea></div>
+            <div class="field-group"><label>User Message (Step 1)</label><textarea id="usr-s10_1">Name ten words that all end with the exact letters 'ab'.</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s10_1" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s10_1" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s10_1')">Copy</button></div>
+            <div class="response-text" id="resp-text-s10_1"></div>
+            <div class="token-count" id="tokens-s10_1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 10.2 ══ -->
+    <div class="section-card open" id="s10_2">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#1a1820">🔧</div>
+        <div><h2>10.2 — Tool Use (Function Calling)</h2><div class="tags"><span class="tag">Tools</span><span class="tag">Functions</span></div></div>
+        <span class="badge">Appendix</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">Tool use lets Claude call external functions. You define tools in the system prompt, Claude outputs a <code>&lt;function_calls&gt;</code> block, you execute the tool, then return results as <code>&lt;function_results&gt;</code>.</p>
+        <h3>3-Step Process</h3>
+        <ul>
+          <li><strong>1.</strong> Claude outputs <code>&lt;function_calls&gt;</code> with tool name and arguments</li>
+          <li><strong>2.</strong> Halt generation at <code>&lt;/function_calls&gt;</code>, execute the tool</li>
+          <li><strong>3.</strong> Inject <code>&lt;function_results&gt;</code> back in a new user turn</li>
+        </ul>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 See Claude output a function call</span>
+            <select class="model-sel" id="model-s10_2"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s10_2')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt (tool definition)</label><textarea class="sys" id="sys-s10_2">You have access to a calculator tool. When you need to do arithmetic, output a function call in this exact format and then stop:
+
+&lt;function_calls&gt;
+&lt;invoke name="calculator"&gt;
+&lt;parameter name="first_operand"&gt;NUMBER&lt;/parameter&gt;
+&lt;parameter name="operator"&gt;OPERATOR&lt;/parameter&gt;
+&lt;parameter name="second_operand"&gt;NUMBER&lt;/parameter&gt;
+&lt;/invoke&gt;
+&lt;/function_calls&gt;</textarea></div>
+            <div class="field-group"><label>User Message</label><textarea id="usr-s10_2">What is 1,984,135 multiplied by 9,343,116?</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s10_2" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s10_2" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s10_2')">Copy</button></div>
+            <div class="response-text" id="resp-text-s10_2"></div>
+            <div class="token-count" id="tokens-s10_2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 10.3 ══ -->
+    <div class="section-card open" id="s10_3">
+      <div class="section-header" onclick="toggle(this)">
+        <div class="section-icon" style="background:#18181e">🔍</div>
+        <div><h2>10.3 — Search & Retrieval (RAG)</h2><div class="tags"><span class="tag">RAG</span><span class="tag">Embeddings</span></div></div>
+        <span class="badge">Appendix</span>
+        <div class="toggle-btn">▾</div>
+      </div>
+      <div class="section-body">
+        <p class="desc">RAG (Retrieval-Augmented Generation) fetches relevant documents at query time and adds them to Claude's context. This reduces hallucinations on factual questions and grounds answers in current data.</p>
+        <h3>Pattern: Retrieve → Augment → Generate</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Python</span><span>Basic RAG pattern</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code>docs = <span class="fn">search_your_documents</span>(user_query)
+
+PROMPT = <span class="fn">f</span><span class="str">"""Answer using only the information below.
+
+&lt;context&gt;
+{docs}
+&lt;/context&gt;
+
+&lt;question&gt;{user_query}&lt;/question&gt;
+
+If the answer is not in the context, say "I don't know"."""</span></code></pre>
+        </div>
+        <div class="try-it">
+          <div class="try-it-header">
+            <span>🔬 Simulated RAG (paste your context)</span>
+            <select class="model-sel" id="model-s10_3"><option value="claude-haiku-4-5-20251001">Haiku</option><option value="claude-sonnet-4-6">Sonnet</option></select>
+            <button class="run-btn" onclick="runTry('s10_3')">▶ Run</button>
+          </div>
+          <div class="try-it-fields">
+            <div class="field-group"><label>System Prompt</label><textarea class="sys" id="sys-s10_3">You are a precise Q&A assistant. Answer questions only using the provided context.</textarea></div>
+            <div class="field-group"><label>User Message (paste any document as context)</label><textarea id="usr-s10_3">Answer the question using only the context below. If the answer isn't there, say "I don't know."
+
+&lt;context&gt;
+The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, France. It was constructed from 1887 to 1889 as the centerpiece of the 1889 World's Fair. The tower is 330 metres tall (1,083 ft) and was the world's tallest man-made structure until the Chrysler Building in New York City was finished in 1930.
+&lt;/context&gt;
+
+&lt;question&gt;How tall is the Eiffel Tower and when was it built?&lt;/question&gt;</textarea></div>
+            <div class="field-group"><label>Prefill</label><textarea id="pre-s10_3" style="min-height:40px"></textarea></div>
+          </div>
+          <div class="response-area" id="resp-s10_3" style="display:none">
+            <div class="response-header"><span>Claude's Response</span><button class="copy-resp" onclick="copyResp('s10_3')">Copy</button></div>
+            <div class="response-text" id="resp-text-s10_3"></div>
+            <div class="token-count" id="tokens-s10_3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FREE PLAYGROUND ══ -->
+    <div id="playground-section">
+      <h2>Free <span>Playground</span></h2>
+      <p class="subtitle">Experiment with any prompt. All fields are editable. Your key stays in localStorage — it never touches our servers.</p>
+      <div class="pg-grid">
+        <div class="pg-field">
+          <label>Model</label>
+          <select id="pg-model">
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (fast &amp; cheap)</option>
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6 (powerful)</option>
+            <option value="claude-opus-4-6">claude-opus-4-6 (most capable)</option>
+          </select>
+        </div>
+        <div class="pg-field">
+          <label>Max Tokens</label>
+          <input type="text" id="pg-tokens" value="1024">
+        </div>
+        <div class="pg-field full">
+          <label>System Prompt</label>
+          <textarea id="pg-system" class="tall" placeholder="Optional: set a persona, role, or persistent instructions…"></textarea>
+        </div>
+        <div class="pg-field full">
+          <label>User Message</label>
+          <textarea id="pg-user" class="tall" placeholder="Type your prompt here…"></textarea>
+        </div>
+        <div class="pg-field full">
+          <label>Prefill (assistant turn start — optional)</label>
+          <textarea id="pg-prefill" style="min-height:48px" placeholder='e.g.  {   or   &lt;answer&gt;'></textarea>
+        </div>
+        <div class="pg-actions pg-field full">
+          <button class="pg-run-btn" id="pg-run" onclick="runPlayground()">▶ Run Prompt</button>
+          <button class="pg-clear-btn" onclick="clearPlayground()">Clear</button>
+          <span id="pg-status" style="font-size:12px;color:var(--text-dim)"></span>
+        </div>
+        <div class="pg-response-wrap pg-field full">
+          <div class="pg-response-header">
+            <span>Response</span>
+            <span class="meta" id="pg-meta"></span>
+            <button class="copy-resp" onclick="copyPgResp()">Copy</button>
+          </div>
+          <div class="pg-response-text empty" id="pg-response">Run a prompt to see the response here…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CHEAT SHEET ══ -->
+    <div id="cheatsheet">
+      <h2>Prompt Engineering <span>Cheat Sheet</span></h2>
+      <p class="subtitle">All core techniques at a glance.</p>
+      <div class="cs-grid">
+        <div class="cs-card"><div class="cs-icon">🏗️</div><h4>API Structure</h4><p><code>model</code> + <code>max_tokens</code> + <code>messages</code> (required). Add <code>system</code> for persistent instructions. Turns must alternate user/assistant starting with user.</p></div>
+        <div class="cs-card"><div class="cs-icon">🎯</div><h4>Be Clear &amp; Direct</h4><p>State requirements explicitly. Use <code>"Skip the preamble"</code>, <code>"If you had to pick one"</code>, <code>"Write at least N words"</code>. Golden rule: if a colleague would be confused, so will Claude.</p></div>
+        <div class="cs-card"><div class="cs-icon">🎭</div><h4>Role Prompting</h4><p>Assign a detailed persona in the system prompt. More context = better performance. Especially effective for logic, math, and domain expertise.</p></div>
+        <div class="cs-card"><div class="cs-icon">🏷️</div><h4>XML Tags</h4><p>Wrap variable data in <code>&lt;tag&gt;data&lt;/tag&gt;</code>. Any descriptive tag works. Separates instructions from content — prevents misinterpretation.</p></div>
+        <div class="cs-card"><div class="cs-icon">📐</div><h4>Prefilling</h4><p>Add assistant turn with opening <code>&lt;tag&gt;</code> or <code>{"{"}</code> to force output format. Combine with <code>stop_sequences</code> to stop after closing tag (saves tokens).</p></div>
+        <div class="cs-card"><div class="cs-icon">🧠</div><h4>Chain of Thought</h4><p>Ask Claude to reason in <code>&lt;thinking&gt;</code> tags before answering. Must be written out — silent thinking gives no benefit. Counters ordering bias.</p></div>
+        <div class="cs-card"><div class="cs-icon">📸</div><h4>Few-Shot Examples</h4><p>2-5 input→output pairs teach style and format better than instructions. Works for classification, tone, structure. Claude infers the pattern.</p></div>
+        <div class="cs-card"><div class="cs-icon">🛡️</div><h4>Anti-Hallucination</h4><p>Add <code>"Only answer if certain"</code> or <code>"Say 'I don't know' if unsure"</code>. Request confidence levels. Stack multiple techniques. "I don't know" &gt; confident lies.</p></div>
+        <div class="cs-card"><div class="cs-icon">🔗</div><h4>Prompt Chaining</h4><p>Pass previous response back in next turn for verification or refinement. Add safety clause: <code>"If already correct, return original"</code>.</p></div>
+        <div class="cs-card"><div class="cs-icon">🔧</div><h4>Tool Use</h4><p>Define tools in system as XML. Stop at <code>&lt;/function_calls&gt;</code>, execute externally, inject <code>&lt;function_results&gt;</code> in next user turn. Claude only calls tools when needed.</p></div>
+      </div>
+      <table class="cs-table" style="margin-top:28px">
+        <thead><tr><th>Technique</th><th>When to Use</th><th>Key Pattern</th></tr></thead>
+        <tbody>
+          <tr><td>System Prompt</td><td>Persistent instructions / persona across all turns</td><td><code>system="You are an expert..."</code></td></tr>
+          <tr><td>Role Prompting</td><td>Logic, math, domain expertise tasks</td><td><code>"You are a [expert in X]..."</code></td></tr>
+          <tr><td>XML Tags</td><td>Separating user data from instructions</td><td><code>&lt;email&gt;{data}&lt;/email&gt;</code></td></tr>
+          <tr><td>Prefilling</td><td>Force JSON, XML, or specific format</td><td>assistant: <code>"{"</code> or <code>"&lt;tag&gt;"</code></td></tr>
+          <tr><td>stop_sequences</td><td>Halt generation at closing tag → save tokens</td><td><code>stop_sequences=["&lt;/tag&gt;"]</code></td></tr>
+          <tr><td>Few-Shot</td><td>Teaching style, tone, format patterns</td><td>Q: … A: … Q: … A: [Claude continues]</td></tr>
+          <tr><td>Chain of Thought</td><td>Complex reasoning, nuanced classification</td><td><code>"Think in &lt;thinking&gt; tags first"</code></td></tr>
+          <tr><td>Anti-Hallucination</td><td>Factual queries with uncertain answers</td><td><code>"Only if certain. Say 'I don't know' otherwise."</code></td></tr>
+          <tr><td>Prompt Chaining</td><td>Multi-step workflows, self-verification</td><td>Inject <code>first_response</code> as assistant turn</td></tr>
+          <tr><td>Tool Use</td><td>Calculations, DB queries, external APIs</td><td>Define XML schema → stop → inject results</td></tr>
+          <tr><td>RAG</td><td>Factual questions, reducing hallucinations</td><td>Retrieve docs → add to <code>&lt;context&gt;</code> → answer</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:28px;font-size:15px;color:var(--text)">The Ultimate Prompt Template</h3>
+      <div class="code-block" style="margin-top:12px">
+        <div class="code-header"><span class="lang">Template</span><span>Combine all techniques</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><code><span class="cmt"># SYSTEM PROMPT ───────────────────────────────────────────</span>
+<span class="str">"""
+[ROLE]        You are an expert [domain] assistant.
+[CONTEXT]     Your goal is to [high-level task description].
+[RULES]       Always [rule 1]. Never [rule 2].
+"""</span>
+
+<span class="cmt"># USER MESSAGE ─────────────────────────────────────────────</span>
+<span class="str">f"""
+[INSTRUCTIONS]  Please [specific task] the following [data type].
+
+[EXAMPLES]      Input: &lt;example&gt;...&lt;/example&gt; → Output: ...
+                Input: &lt;example&gt;...&lt;/example&gt; → Output: ...
+
+[INPUT DATA]    &lt;input&gt;{USER_DATA}&lt;/input&gt;
+
+[OUTPUT FORMAT] Think in &lt;thinking&gt;&lt;/thinking&gt; tags first,
+                then output &lt;answer&gt;...&lt;/answer&gt;.
+
+[CONSTRAINTS]   If uncertain, output &lt;answer&gt;unknown&lt;/answer&gt;.
+"""</span>
+
+<span class="cmt"># PREFILL ──────────────────────────────────────────────────</span>
+<span class="str">"&lt;thinking&gt;"</span>  <span class="cmt"># speaking for Claude</span></code></pre>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let apiKey = localStorage.getItem('anthropic_api_key') || '';
+updateApiKeyUI();
+
+// ═══════════════════════════════════════════════════════════
+//  API KEY MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+function updateApiKeyUI() {
+  const hasKey = !!apiKey;
+  const banner = document.getElementById('api-banner');
+  const bannerText = document.getElementById('banner-text');
+  const badge = document.getElementById('hero-badge');
+  const badgeText = document.getElementById('hero-badge-text');
+  if (hasKey) {
+    banner.classList.add('ok');
+    bannerText.textContent = 'API key set — prompts will run against Anthropic directly from your browser.';
+    badge.classList.add('ok');
+    badgeText.textContent = 'API key active — click to manage';
+  } else {
+    banner.classList.remove('ok');
+    bannerText.textContent = 'No API key set — click to add one and run prompts live.';
+    badge.classList.remove('ok');
+    badgeText.textContent = 'Click to set your API key';
+  }
+}
+
+function openModal() {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('show');
+  const input = document.getElementById('key-input');
+  if (apiKey) input.value = apiKey;
+  input.focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-status').textContent = '';
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function saveKey() {
+  const val = document.getElementById('key-input').value.trim();
+  if (!val) { document.getElementById('modal-status').textContent = 'Please enter a key.'; return; }
+  if (!val.startsWith('sk-ant-')) {
+    document.getElementById('modal-status').style.color = 'var(--accent)';
+    document.getElementById('modal-status').textContent = '⚠ Key should start with sk-ant-';
+  } else {
+    document.getElementById('modal-status').style.color = 'var(--accent3)';
+    document.getElementById('modal-status').textContent = '✓ Key saved to localStorage';
+  }
+  apiKey = val;
+  localStorage.setItem('anthropic_api_key', val);
+  updateApiKeyUI();
+  setTimeout(closeModal, 1200);
+}
+
+function clearKey() {
+  apiKey = '';
+  localStorage.removeItem('anthropic_api_key');
+  document.getElementById('key-input').value = '';
+  document.getElementById('modal-status').style.color = 'var(--text-dim)';
+  document.getElementById('modal-status').textContent = 'Key cleared.';
+  updateApiKeyUI();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ANTHROPIC API CALL
+// ═══════════════════════════════════════════════════════════
+async function callClaude({ system, userMessage, prefill, model, maxTokens }) {
+  if (!apiKey) { openModal(); throw new Error('No API key. Please set one first.'); }
+
+  const messages = [{ role: 'user', content: userMessage }];
+  if (prefill && prefill.trim()) {
+    messages.push({ role: 'assistant', content: prefill });
+  }
+
+  const body = {
+    model: model || 'claude-haiku-4-5-20251001',
+    max_tokens: parseInt(maxTokens) || 1024,
+    messages,
+  };
+  if (system && system.trim()) body.system = system;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const e = await res.json(); msg = e.error?.message || msg; } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return {
+    text: (prefill && prefill.trim() ? prefill : '') + (data.content[0]?.text || ''),
+    inputTokens: data.usage?.input_tokens,
+    outputTokens: data.usage?.output_tokens,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SECTION TRY-IT
+// ═══════════════════════════════════════════════════════════
+async function runTry(id) {
+  const btn = document.querySelector(`#ti-${id} .run-btn`) ||
+              document.querySelector(`[id^="s${id.replace('s','')}"] .run-btn`);
+  const allBtns = document.querySelectorAll(`#${id} .run-btn`);
+  const runBtns = document.querySelectorAll(`#${id} .run-btn`);
+
+  const activeBtn = document.getElementById(`sys-${id}`)?.closest('.section-card')?.querySelector('.run-btn');
+
+  const sys = document.getElementById(`sys-${id}`)?.value || '';
+  const usr = document.getElementById(`usr-${id}`)?.value || '';
+  const pre = document.getElementById(`pre-${id}`)?.value || '';
+  const model = document.getElementById(`model-${id}`)?.value || 'claude-haiku-4-5-20251001';
+
+  const respArea = document.getElementById(`resp-${id}`);
+  const respText = document.getElementById(`resp-text-${id}`);
+  const tokens = document.getElementById(`tokens-${id}`);
+
+  // Find the actual run button for this section
+  const sectionEl = document.getElementById(id);
+  const runBtn = sectionEl?.querySelector('.run-btn');
+
+  if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<span class="spin">⟳</span> Running…'; }
+  respArea.style.display = 'block';
+  respText.className = 'response-text loading';
+  respText.textContent = 'Calling Anthropic API…';
+  tokens.textContent = '';
+
+  try {
+    const result = await callClaude({ system: sys, userMessage: usr, prefill: pre, model });
+    respText.className = 'response-text';
+    respText.textContent = result.text;
+    if (result.inputTokens) tokens.textContent = `${result.inputTokens} in · ${result.outputTokens} out tokens`;
+  } catch (err) {
+    respText.className = 'response-text error';
+    respText.textContent = `Error: ${err.message}`;
+  } finally {
+    if (runBtn) { runBtn.disabled = false; runBtn.innerHTML = '▶ Run'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FREE PLAYGROUND
+// ═══════════════════════════════════════════════════════════
+async function runPlayground() {
+  const system  = document.getElementById('pg-system').value;
+  const user    = document.getElementById('pg-user').value;
+  const prefill = document.getElementById('pg-prefill').value;
+  const model   = document.getElementById('pg-model').value;
+  const maxTok  = document.getElementById('pg-tokens').value;
+
+  if (!user.trim()) { document.getElementById('pg-status').textContent = 'Please enter a message.'; return; }
+
+  const btn = document.getElementById('pg-run');
+  const resp = document.getElementById('pg-response');
+  btn.disabled = true; btn.innerHTML = '<span class="spin" style="animation:spin .7s linear infinite;display:inline-block">⟳</span> Running…';
+  resp.className = 'pg-response-text';
+  resp.textContent = 'Calling Anthropic API…';
+  document.getElementById('pg-meta').textContent = '';
+  document.getElementById('pg-status').textContent = '';
+
+  try {
+    const result = await callClaude({ system, userMessage: user, prefill, model, maxTokens: maxTok });
+    resp.className = 'pg-response-text';
+    resp.textContent = result.text;
+    if (result.inputTokens) {
+      document.getElementById('pg-meta').textContent =
+        `${result.inputTokens} in · ${result.outputTokens} out · ${model.split('-').slice(1,3).join('-')}`;
+    }
+  } catch (err) {
+    resp.className = 'pg-response-text error';
+    resp.style.color = '#f87171';
+    resp.textContent = `Error: ${err.message}`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '▶ Run Prompt';
+  }
+}
+
+function clearPlayground() {
+  document.getElementById('pg-system').value = '';
+  document.getElementById('pg-user').value = '';
+  document.getElementById('pg-prefill').value = '';
+  document.getElementById('pg-response').className = 'pg-response-text empty';
+  document.getElementById('pg-response').style.color = '';
+  document.getElementById('pg-response').textContent = 'Run a prompt to see the response here…';
+  document.getElementById('pg-meta').textContent = '';
+  document.getElementById('pg-status').textContent = '';
+}
+
+function copyPgResp() {
+  const text = document.getElementById('pg-response').textContent;
+  navigator.clipboard.writeText(text);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function toggle(header) { header.parentElement.classList.toggle('open'); }
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyResp(id) {
+  navigator.clipboard.writeText(document.getElementById(`resp-text-${id}`).textContent);
+}
+
+// Search
+function filterContent(q) {
+  q = q.toLowerCase().trim();
+  document.querySelectorAll('.section-card').forEach(card => {
+    if (!q) { card.style.display = ''; return; }
+    card.style.display = card.innerText.toLowerCase().includes(q) ? '' : 'none';
+    if (card.innerText.toLowerCase().includes(q)) card.classList.add('open');
+  });
+}
+
+// Scroll: progress bar + sidebar active + back to top
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+  const bTop = document.getElementById('back-top');
+  window.scrollY > 400 ? bTop.classList.add('visible') : bTop.classList.remove('visible');
+  let active = null;
+  document.querySelectorAll('[id^="s"], #playground-section, #cheatsheet').forEach(s => {
+    if (s.getBoundingClientRect().top < 180) active = s.id;
+  });
+  document.querySelectorAll('#sidebar nav a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + active);
+  });
+});
+
+// Keyboard shortcut: Escape closes modal
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
