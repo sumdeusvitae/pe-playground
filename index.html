@@ -475,15 +475,31 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">The Messages API requires <strong>model</strong>, <strong>max_tokens</strong>, and <strong>messages</strong>. User/assistant turns must strictly alternate — always starting with "user". System prompts live in a separate parameter.</p>
-        <h3>Key Rules</h3>
+        <p class="desc">The Anthropic Messages API is the foundation of every Claude interaction. Three parameters are required: <strong>model</strong> (which Claude variant to use), <strong>max_tokens</strong> (the maximum output length), and <strong>messages</strong> (the conversation turns). Everything else — including the system prompt — is optional but powerful.</p>
+        <h3>The Messages Array</h3>
+        <p class="desc">Each entry in <code>messages</code> has two fields: <code>role</code> and <code>content</code>. Roles must strictly alternate between <code>"user"</code> and <code>"assistant"</code> — you can never have two consecutive messages from the same role — and the first message must always come from <code>"user"</code>. Think of it as a transcript: Claude can't speak twice without you speaking in between.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Python</span><span>Multi-turn structure</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code>messages = [
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: <span class="str">"Hello Claude!"</span>},
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="str">"Hello! How can I help you today?"</span>},
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: <span class="str">"Tell me a joke."</span>},
+]</code></pre>
+        </div>
+        <h3>System Prompt vs User Message</h3>
+        <p class="desc">The <strong>system</strong> parameter is a privileged instruction block that applies to the entire conversation. Use it for persistent persona, rules, tone, and constraints. The <strong>user</strong> message is the human's specific input for that turn. Mixing the two works technically, but separating them keeps your prompt clean and maintainable.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ Mixed</span><p><em>User:</em> "You are a helpful assistant. What is 2+2?"</p></div>
+          <div class="example-box good"><span class="label">✓ Separated</span><p><em>System:</em> "You are a helpful assistant."<br><em>User:</em> "What is 2+2?"</p></div>
+        </div>
+        <h3>max_tokens &amp; Temperature</h3>
         <ul>
-          <li><strong>messages</strong> — array of <code>{"role": "user"|"assistant", "content": "..."}</code></li>
-          <li>Turns must alternate: user → assistant → user → …</li>
-          <li><strong>system</strong> — separate parameter, shapes every response</li>
-          <li><strong>temperature=0</strong> → deterministic · <strong>temperature=1</strong> → creative</li>
+          <li><strong>max_tokens</strong> — hard cap on output length. Claude stops mid-sentence if it hits the limit. Set it higher than you expect to need.</li>
+          <li><strong>temperature=0</strong> — fully deterministic. Same input always produces the same output. Best for testing and production pipelines.</li>
+          <li><strong>temperature=1</strong> — maximum creativity and variation. Good for brainstorming and creative writing.</li>
+          <li><strong>temperature=0.5</strong> — a common middle ground for balanced, varied responses.</li>
         </ul>
-        <div class="warn"><strong>Rule:</strong> Never have two consecutive turns from the same role. Always start with "user".</div>
+        <div class="warn"><strong>Rule:</strong> Never have two consecutive turns from the same role. Always start with "user". The API returns an error if you break alternation.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Try it live</span>
@@ -513,15 +529,27 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Claude responds best to clear, direct instructions. Treat it like a smart new employee — no assumed context. Use <strong>"Skip the preamble"</strong>, <strong>"If you had to pick one"</strong>, <strong>"Write at least N words"</strong>.</p>
+        <p class="desc">Claude is highly literal — it follows your instructions precisely. Think of it like a genie: you get exactly what you asked for, not necessarily what you meant. Vague requests produce hedged, generic responses. Specific, direct prompts produce focused, useful ones.</p>
+        <h3>Why Claude Hedges</h3>
+        <p class="desc">When given an ambiguous request, Claude defaults to covering all bases ("there are many perspectives on this...") rather than committing to one answer. This isn't a flaw — it's Claude being cautious under uncertainty. The fix is simple: remove the ambiguity explicitly in your prompt.</p>
         <div class="example-pair">
-          <div class="example-box bad"><span class="label">❌ Vague</span><p>"Write a haiku about robots."</p></div>
-          <div class="example-box good"><span class="label">✓ Clear</span><p>"Write a haiku about robots. Skip the preamble; go straight into the poem."</p></div>
+          <div class="example-box bad"><span class="label">❌ Vague</span><p>"Write a haiku about robots."<br><em>→ Claude writes one, then often adds commentary, variations, or explanation.</em></p></div>
+          <div class="example-box good"><span class="label">✓ Clear</span><p>"Write a haiku about robots. Skip the preamble; go straight into the poem."<br><em>→ Claude delivers just the haiku.</em></p></div>
         </div>
         <div class="example-pair">
-          <div class="example-box bad"><span class="label">❌ Wishy-washy</span><p>"Who is the best basketball player of all time?"</p></div>
-          <div class="example-box good"><span class="label">✓ Decisive</span><p>"Who is the best basketball player? If you absolutely had to pick one, who would it be?"</p></div>
+          <div class="example-box bad"><span class="label">❌ Wishy-washy</span><p>"Who is the best basketball player of all time?"<br><em>→ Claude lists 5 candidates and refuses to pick.</em></p></div>
+          <div class="example-box good"><span class="label">✓ Decisive</span><p>"Who is the best basketball player? If you absolutely had to pick one, who would it be and why?"<br><em>→ Claude commits to an answer.</em></p></div>
         </div>
+        <h3>Useful Clarity Phrases</h3>
+        <ul>
+          <li><strong>"Skip the preamble"</strong> — eliminates "Great question! Here's what I think..." openers</li>
+          <li><strong>"Be direct / Don't hedge"</strong> — prevents wishy-washy language and caveats</li>
+          <li><strong>"If you absolutely had to pick one..."</strong> — forces a definitive answer on subjective questions</li>
+          <li><strong>"Write at least 400 words"</strong> — enforces minimum length when Claude is too brief</li>
+          <li><strong>"Respond only with X"</strong> — restricts output to a specific format (one word, JSON, a number)</li>
+          <li><strong>"Do not explain your reasoning"</strong> — strips unwanted justification from the reply</li>
+        </ul>
+        <div class="tip"><strong>Mental model:</strong> Reread your prompt as if you're a very literal intern seeing it for the first time. Where could it be misunderstood? That's where you need more specificity.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Compare: vague vs direct</span>
@@ -551,11 +579,25 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Assigning a detailed role in the system prompt shapes Claude's tone, style, and accuracy. Particularly effective for <strong>logic</strong>, <strong>math</strong>, and <strong>domain expertise</strong>. More detail = better performance.</p>
+        <p class="desc">Assigning Claude a specific role in the system prompt dramatically changes the quality, style, and accuracy of its responses. A role activates the relevant subset of Claude's knowledge and sets an appropriate operating mode. The more specific the role, the better the output.</p>
+        <h3>Why Roles Work</h3>
+        <p class="desc">Claude has been trained on an enormous range of text — from medical journals to legal briefs to engineering docs. A role prompt tells Claude which domain and voice to operate in, shaping vocabulary, assumptions, depth of explanation, and confidence level. It's not just cosmetic: roles measurably improve performance on domain-specific tasks.</p>
         <div class="example-pair">
-          <div class="example-box bad"><span class="label">No Role</span><p>System: (empty)<br>Result: generic, hedged response</p></div>
-          <div class="example-box good"><span class="label">With Role</span><p>System: "You are a logic bot for complex logic problems."<br>Result: structured, accurate</p></div>
+          <div class="example-box bad"><span class="label">❌ Weak Role</span><p>System: "You are an expert."<br><em>Too vague — expert at what? Claude defaults to generalist mode.</em></p></div>
+          <div class="example-box good"><span class="label">✓ Strong Role</span><p>System: "You are a logic bot designed to answer complex logic problems with methodical step-by-step reasoning."<br><em>Claude adopts a structured, analytical approach.</em></p></div>
         </div>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">No Role</span><p>System: (empty)<br>Result: generic, hedged response that hedges on edge cases</p></div>
+          <div class="example-box good"><span class="label">With Role</span><p>System: "You are a Socratic tutor. Never give the answer directly — guide the student to it through questions."<br>Result: completely different interaction style</p></div>
+        </div>
+        <h3>When Roles Are Most Effective</h3>
+        <ul>
+          <li><strong>Logic and math</strong> — "You are a logical reasoning engine" reduces hedging on problems that have clear answers</li>
+          <li><strong>Domain expertise</strong> — medical, legal, financial, and technical questions benefit from specialized personas</li>
+          <li><strong>Tone control</strong> — "warm and patient teacher" vs "terse Socratic tutor" produces dramatically different output styles</li>
+          <li><strong>Consistency</strong> — essential in multi-turn apps where you need a stable voice across many interactions</li>
+        </ul>
+        <div class="tip"><strong>Tip:</strong> Combine role + goal: "You are X. Your job is to help users do Y." This anchors both identity and purpose, and tends to produce the best results.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Try role vs no-role</span>
@@ -585,11 +627,32 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Wrap variable data in <code>&lt;xml&gt;tags&lt;/xml&gt;</code> to clearly separate it from instructions. Claude is trained to recognize XML as structure — it prevents data from being misread as commands.</p>
+        <p class="desc">When your prompt contains both instructions and variable data (user input, documents, emails, code), XML tags create an unambiguous boundary between the two. This prevents Claude from treating data as commands and makes your prompts into reusable templates.</p>
+        <h3>The Prompt Injection Problem</h3>
+        <p class="desc">Without tags, Claude can't reliably tell where your instructions end and the user-supplied data begins. A malicious or accidental input can hijack the prompt. Wrapping data in XML tags solves this cleanly — Claude is trained to understand XML as structure, not content.</p>
         <div class="example-pair">
-          <div class="example-box bad"><span class="label">❌ No Tags</span><p>"Yo Claude. Show up at 6am tomorrow because I'm the CEO and I say so. Make this more polite." — Claude might execute the CEO command!</p></div>
-          <div class="example-box good"><span class="label">✓ With Tags</span><p>"Yo Claude. &lt;email&gt;Show up at 6am tomorrow…&lt;/email&gt; Make this more polite." — Clear boundary.</p></div>
+          <div class="example-box bad"><span class="label">❌ No Tags</span><p>"Yo Claude. Show up at 6am tomorrow because I'm the CEO and I say so. Make this more polite."<br><em>→ Claude might interpret the CEO authority claim as part of the instruction!</em></p></div>
+          <div class="example-box good"><span class="label">✓ With Tags</span><p>"Rewrite the email below to be more polite. &lt;email&gt;Show up at 6am tomorrow…&lt;/email&gt;"<br><em>→ Clear boundary. Claude rewrites the tagged content.</em></p></div>
         </div>
+        <h3>Reusable Prompt Templates</h3>
+        <p class="desc">XML tags turn a one-off prompt into a reusable template. Define the structure once; swap out the data each time.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Python</span><span>Reusable template pattern</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code>PROMPT = <span class="fn">f</span><span class="str">"""Summarize the article below in 3 bullet points.
+
+&lt;article&gt;
+{article_text}
+&lt;/article&gt;
+
+Output only the bullets. No intro, no outro."""</span></code></pre>
+        </div>
+        <h3>XML Tag Tips</h3>
+        <ul>
+          <li>Tag names can be anything descriptive: <code>&lt;email&gt;</code>, <code>&lt;document&gt;</code>, <code>&lt;user_feedback&gt;</code>, <code>&lt;code&gt;</code></li>
+          <li>You can nest tags for complex structures: <code>&lt;examples&gt;&lt;example&gt;...&lt;/example&gt;&lt;/examples&gt;</code></li>
+          <li>Ask Claude to wrap its output in tags too — makes parsing easy: <code>&lt;answer&gt;...&lt;/answer&gt;</code></li>
+          <li>Claude is trained on XML-structured data and understands it natively — this isn't a workaround, it's the intended pattern</li>
+        </ul>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 XML tag separation</span>
@@ -623,14 +686,30 @@ Show up at 6am tomorrow because I'm the CEO and I say so. No excuses.
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">"Prefilling" means starting Claude's response yourself in the assistant turn. This powerfully steers output format. Start with <code>{"{"}</code> for JSON, <code>&lt;tag&gt;</code> for XML-wrapped content.</p>
+        <p class="desc">Two powerful techniques for controlling Claude's output format: <strong>explicit format instructions</strong> tell Claude what structure to use, and <strong>prefilling</strong> (starting Claude's response yourself in the <code>assistant</code> turn) forces it to continue that structure without preamble.</p>
+        <h3>How Prefilling Works</h3>
+        <p class="desc">Prefilling adds a partial <code>assistant</code> message to the end of your messages array. Claude sees this as the beginning of its own response and continues naturally from that starting point. Start with <code>{"{"}</code> and you get JSON. Start with <code>&lt;analysis&gt;</code> and Claude opens with that tag. This is one of the most reliable format-control techniques available.</p>
         <div class="code-block">
-          <div class="code-header"><span class="lang">Pattern</span><span>Prefill forces JSON</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <div class="code-header"><span class="lang">Python</span><span>Prefill forces JSON output</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
           <pre><code>messages=[
   {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Write a haiku about cats in JSON."</span>},
-  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="str">"{"</span>}  <span class="cmt">← prefill</span>
+  {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: <span class="str">"{"</span>}  <span class="cmt">← prefill: Claude continues from here</span>
 ]</code></pre>
         </div>
+        <h3>When to Suppress Markdown</h3>
+        <p class="desc">Claude defaults to using markdown (bold, headers, bullet lists) in many responses. This looks great in a rendered chat UI, but it's noisy when you're processing text programmatically or displaying in a plain-text context. Be explicit when you don't want it.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">Unwanted Markdown</span><p>**Here are 3 tips:**<br>- Use clear prompts<br>- Add examples</p></div>
+          <div class="example-box good"><span class="label">Plain Text (add "Do not use markdown")</span><p>1. Use clear prompts<br>2. Add examples</p></div>
+        </div>
+        <h3>Format Control Tips</h3>
+        <ul>
+          <li><strong>JSON</strong>: prefill with <code>{"{"}</code> or instruct "respond with valid JSON only, no prose"</li>
+          <li><strong>XML output</strong>: ask Claude to wrap its answer in a specific tag (<code>&lt;answer&gt;</code>) so it's easy to extract with a regex or parser</li>
+          <li><strong>Length control</strong>: "respond in exactly one sentence" or "use at most 3 bullet points, no more"</li>
+          <li><strong>stop_sequences</strong>: in the API, set <code>stop_sequences=["&lt;/answer&gt;"]</code> to stop generation right after the closing tag — saves tokens</li>
+          <li><strong>No preamble</strong>: prefilling with the first word of the expected output removes any intro text entirely</li>
+        </ul>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Try prefilling for JSON output</span>
@@ -660,8 +739,21 @@ Show up at 6am tomorrow because I'm the CEO and I say so. No excuses.
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Ask Claude to reason in <code>&lt;thinking&gt;</code> tags before answering. Thinking must be written out — you can't ask Claude to "think silently." This dramatically improves accuracy on nuanced tasks.</p>
-        <div class="tip"><strong>Key insight:</strong> Claude is biased toward the second option presented. Writing out arguments for both sides before deciding counteracts this.</div>
+        <p class="desc">Asking Claude to reason through a problem before answering — "chain of thought" — dramatically improves accuracy on nuanced tasks like sentiment analysis, multi-step logic, and math. The key is that reasoning must be written out explicitly; Claude cannot think silently.</p>
+        <h3>Why Thinking Helps</h3>
+        <p class="desc">Claude, like humans, can jump to confident-sounding answers that are actually wrong. Writing out explicit reasoning catches errors before they appear in the final output. It also counteracts a specific and well-documented Claude bias: when presented with multiple options, Claude tends to favor the <strong>last option listed</strong>. Explicitly reasoning through all sides before deciding neutralizes this effect.</p>
+        <h3>How to Prompt for Thinking</h3>
+        <ul>
+          <li><strong>"Think step by step"</strong> — the classic, works well for math and logic problems</li>
+          <li><strong>"Before answering, write your reasoning in &lt;thinking&gt; tags"</strong> — gives you a visible scratch pad you can inspect</li>
+          <li><strong>"Write the best argument for each side before deciding"</strong> — forces balanced consideration on opinion/classification tasks</li>
+          <li><strong>Prefill with <code>&lt;thinking&gt;</code></strong> — forces Claude to start reasoning immediately before it commits to an answer</li>
+        </ul>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">Without Thinking</span><p>Prompt: "Is 'This movie blew my mind with freshness. In unrelated news, I've lived under a rock since 1900.' — positive or negative?"<br><em>→ Claude may read surface-level and say positive.</em></p></div>
+          <div class="example-box good"><span class="label">With Thinking</span><p>Prompt: "Write the best argument for positive and negative in separate tags, then give your final one-word answer."<br><em>→ Claude reasons through the irony and gets it right.</em></p></div>
+        </div>
+        <div class="tip"><strong>Note:</strong> Thinking tokens appear in the output and count toward your token usage. This is standard chain-of-thought prompting — separate from Anthropic's "Extended Thinking" API feature, which uses a dedicated reasoning parameter.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Sentiment analysis with thinking</span>
@@ -693,7 +785,22 @@ Review: "This movie blew my mind with its freshness and originality. In totally 
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Providing 2-5 input→output examples teaches Claude style, tone, and format far more effectively than lengthy instructions. Works for classification, style transfer, structured extraction.</p>
+        <p class="desc">Providing 2–5 worked examples (input → output pairs) in your prompt is often more effective than writing detailed instructions. Examples demonstrate format, style, and logic in a way that descriptions alone can't — Claude learns from patterns, not just rules.</p>
+        <h3>Why Examples Beat Instructions</h3>
+        <p class="desc">Instructions like "be friendly but concise" are ambiguous. A single example of a friendly-but-concise response removes that ambiguity instantly. Few-shot prompting is especially powerful for: consistent output format, specific writing style, classification tasks, and style transfer.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">❌ Instructions Only</span><p>"Respond in a warm, parent-like way that encourages imagination without outright lying to the child."<br><em>→ Every developer interprets "warm parent-like" differently.</em></p></div>
+          <div class="example-box good"><span class="label">✓ With Examples</span><p>Q: Is the tooth fairy real? A: Of course, sweetie. Put your tooth under your pillow tonight…<br><em>→ Claude immediately understands the exact tone and approach to replicate.</em></p></div>
+        </div>
+        <h3>Few-Shot Best Practices</h3>
+        <ul>
+          <li><strong>2–5 examples</strong> is the sweet spot — too few loses the pattern, too many wastes tokens</li>
+          <li><strong>Keep examples consistent</strong> — if your examples vary in format, the output will too</li>
+          <li><strong>Cover edge cases</strong> — include an example that handles the tricky scenario you care most about</li>
+          <li><strong>Use realistic data</strong> — synthetic examples that don't reflect real inputs reduce effectiveness</li>
+          <li><strong>Order matters</strong> — Claude is most influenced by the last example; put your most representative one last</li>
+        </ul>
+        <div class="tip"><strong>Works great for:</strong> sentiment classification, tone matching, data extraction, Q&amp;A format, and any task where "show don't tell" applies.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Few-shot parent bot</span>
@@ -729,11 +836,23 @@ A:</textarea></div>
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Give Claude explicit permission to say "I don't know." Without it, Claude will fabricate confident-sounding answers. Stack multiple anti-hallucination techniques for best results.</p>
+        <p class="desc">Claude will confidently fabricate information when it doesn't know the answer — unless you explicitly give it permission to admit uncertainty. This is one of the most common and costly failure modes in production AI systems. Multiple techniques can be stacked to minimize it.</p>
+        <h3>Why Claude Hallucinates</h3>
+        <p class="desc">Claude is trained to be helpful and produce fluent, coherent text. When it lacks specific information, it pattern-matches from related knowledge to fill the gap — and does so with the same confident tone it uses for facts it actually knows. The model has no built-in "I don't know" trigger. You have to install one explicitly.</p>
         <div class="example-pair">
-          <div class="example-box bad"><span class="label">❌ No constraint</span><p>"Who is the heaviest hippo of all time?" → Claude invents a name and weight.</p></div>
-          <div class="example-box good"><span class="label">✓ Constrained</span><p>"… Only answer if you know with certainty. Otherwise say 'I don't have this information.'"</p></div>
+          <div class="example-box bad"><span class="label">❌ No constraint</span><p>"What was Matterport's exact subscriber base on May 31, 2020?"<br><em>→ Claude invents a specific, plausible-sounding number with full confidence.</em></p></div>
+          <div class="example-box good"><span class="label">✓ Constrained</span><p>"If you don't know the precise figure, say 'I don't have this information.' Do not guess or approximate."<br><em>→ Claude admits it doesn't know.</em></p></div>
         </div>
+        <h3>Anti-Hallucination Techniques</h3>
+        <ul>
+          <li><strong>"Only answer if you are certain"</strong> — explicit permission to abstain when unsure</li>
+          <li><strong>"Say 'I don't have this information' if unsure"</strong> — gives Claude a specific phrase so it doesn't have to improvise a refusal</li>
+          <li><strong>Provide the source data</strong> — use RAG (see 10.3) to give Claude a document to answer from, eliminating reliance on training memory</li>
+          <li><strong>"Cite where you found this"</strong> — hallucinated sources are usually obvious and easy to catch</li>
+          <li><strong>Use XML to isolate the question</strong> — wrapping the query in <code>&lt;question&gt;</code> tags signals Claude this is a specific factual query</li>
+          <li><strong>Set temperature=0</strong> — reduces creative variation, which includes creative fabrication</li>
+        </ul>
+        <div class="tip"><strong>Best practice:</strong> Stack multiple techniques together. "Answer only using the context below. If the answer is not in the context, say 'I don't know.' Do not speculate or fill in gaps."</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Anti-hallucination test</span>
@@ -765,16 +884,26 @@ If you don't know the answer or are uncertain about the precise figure, respond 
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Combine all techniques into a production-ready prompt. Start with every element (role + context + instructions + examples + XML data + format + constraints), then prune what doesn't help.</p>
-        <h3>Recommended Structure</h3>
+        <p class="desc">Production prompts combine every technique from the previous lessons: a detailed role, explicit instructions, few-shot examples, XML-tagged input data, a specified output format, and constraints on uncertainty. The strategy is to <strong>start with everything, verify it works, then prune</strong> elements that don't add measurable value.</p>
+        <h3>Anatomy of a Complex Prompt</h3>
         <ul>
-          <li><strong>1. Role</strong> — system prompt persona</li>
-          <li><strong>2. Instructions</strong> — explicit task</li>
-          <li><strong>3. Examples</strong> — few-shot input/output pairs</li>
-          <li><strong>4. Input data</strong> — in XML tags</li>
-          <li><strong>5. Output format</strong> — XML or JSON spec</li>
-          <li><strong>6. Constraints</strong> — uncertainty handling</li>
+          <li><strong>1. Role (system)</strong> — who Claude is and its primary goal for this application</li>
+          <li><strong>2. Task instructions</strong> — what to do, stated clearly and step by step</li>
+          <li><strong>3. Examples (few-shot)</strong> — 2–3 input → output pairs demonstrating the expected behavior</li>
+          <li><strong>4. Input data (XML)</strong> — the variable content to process, clearly separated from instructions</li>
+          <li><strong>5. Output format</strong> — exact structure of the response (XML tags, JSON schema, bullet count, length)</li>
+          <li><strong>6. Constraints</strong> — what to do when uncertain, what NOT to include, edge case handling</li>
         </ul>
+        <h3>Build Up, Then Prune</h3>
+        <p class="desc">Write a prompt that includes every element above. Test it against real inputs — including edge cases, unusual inputs, and adversarial inputs. Then remove elements one at a time and check whether quality drops. Keep only what earns its place. A simpler prompt is cheaper, faster, and easier to maintain.</p>
+        <h3>Testing Your Prompts</h3>
+        <ul>
+          <li><strong>Test with edge cases</strong> — empty input, very long input, ambiguous input, adversarial input</li>
+          <li><strong>Change one thing at a time</strong> — so you know what's actually improving the output</li>
+          <li><strong>Use temperature=0 for testing</strong> — ensures reproducible results when comparing prompt versions</li>
+          <li><strong>Check failure modes</strong> — what does Claude do when it doesn't know? When the format is violated? When the input is in a different language?</li>
+        </ul>
+        <div class="tip"><strong>Order matters:</strong> Put the role and high-level task at the top of the system prompt. Put the specific data to process at the bottom of the user message, closest to where Claude starts generating. Context near the end has more influence on the output.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Full complex prompt</span>
@@ -815,16 +944,29 @@ Think through your reasoning in &lt;thinking&gt; tags first, then output &lt;ans
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Pass Claude's previous response as context into a follow-up prompt. This lets Claude verify and improve its own work. Add safety clauses like "if already correct, return the original" to prevent over-correction.</p>
+        <p class="desc">Prompt chaining breaks a complex task into sequential steps, where each Claude response feeds into the next prompt. This lets Claude verify its own work, refine outputs, or handle tasks that are too complex to do reliably in a single pass.</p>
+        <h3>Why Chain Prompts?</h3>
+        <p class="desc">A single prompt has limits — for very complex tasks, Claude may make small errors or skip steps. Chaining lets you build a pipeline: Step 1 produces a draft, Step 2 checks it, Step 3 reformats it. Each step is simpler and more reliable than trying to do everything at once.</p>
         <div class="code-block">
-          <div class="code-header"><span class="lang">Python</span><span>Multi-turn message array</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-          <pre><code>messages = [
-  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: first_user},
+          <div class="code-header"><span class="lang">Python</span><span>Two-step chain</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code><span class="cmt"># Step 1: Generate</span>
+first_response = <span class="fn">get_completion</span>(<span class="str">"Name ten words that end with 'ab'."</span>)
+
+<span class="cmt"># Step 2: Verify — inject Step 1's output as context</span>
+messages = [
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: <span class="str">"Name ten words that end with 'ab'."</span>},
   {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: first_response},
-  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: second_user}
+  {<span class="str">"role"</span>: <span class="str">"user"</span>,      <span class="str">"content"</span>: <span class="str">"Check each word above. Do they all actually end with 'ab'? Fix any that don't. If all are correct, return the original list unchanged."</span>}
 ]</code></pre>
         </div>
-        <div class="tip"><strong>Note:</strong> In this playground, chaining requires two separate API calls. The section below lets you simulate turn 2 by pasting Claude's previous response as context.</div>
+        <h3>Common Chaining Patterns</h3>
+        <ul>
+          <li><strong>Generate → Verify</strong> — first pass produces content, second pass fact-checks or corrects it</li>
+          <li><strong>Draft → Critique → Revise</strong> — Claude writes, then critiques its own work, then improves it</li>
+          <li><strong>Extract → Format</strong> — first step pulls raw data from a document, second step structures it as JSON</li>
+          <li><strong>Classify → Respond</strong> — first step categorizes the input, second step generates the appropriate response for that category</li>
+        </ul>
+        <div class="tip"><strong>Safety clause:</strong> Always add "if already correct, return the original unchanged" when chaining a verification step. Without it, Claude will sometimes "improve" things that don't need improving.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Simulate chaining (turn 2)</span>
@@ -854,13 +996,20 @@ Think through your reasoning in &lt;thinking&gt; tags first, then output &lt;ans
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">Tool use lets Claude call external functions. You define tools in the system prompt, Claude outputs a <code>&lt;function_calls&gt;</code> block, you execute the tool, then return results as <code>&lt;function_results&gt;</code>.</p>
-        <h3>3-Step Process</h3>
+        <p class="desc">Tool use (function calling) lets Claude interact with external systems — calculators, databases, APIs, search engines. You define the available tools, Claude decides when and how to call them, and you execute the actual code and return the results.</p>
+        <h3>How It Works</h3>
+        <p class="desc">Claude doesn't actually run code — it outputs a structured request for a tool call, you detect and execute it, then inject the result back into the conversation. Claude then continues with that result as context. The cycle can repeat multiple times in a single task.</p>
+        <h3>The 3-Step Loop</h3>
         <ul>
-          <li><strong>1.</strong> Claude outputs <code>&lt;function_calls&gt;</code> with tool name and arguments</li>
-          <li><strong>2.</strong> Halt generation at <code>&lt;/function_calls&gt;</code>, execute the tool</li>
-          <li><strong>3.</strong> Inject <code>&lt;function_results&gt;</code> back in a new user turn</li>
+          <li><strong>1. Claude decides to call a tool</strong> — outputs a <code>&lt;function_calls&gt;</code> block with the tool name and parameters</li>
+          <li><strong>2. You execute the tool</strong> — halt generation at <code>&lt;/function_calls&gt;</code>, run your code, get the result</li>
+          <li><strong>3. You return the result</strong> — inject a <code>&lt;function_results&gt;</code> block in a new user turn; Claude continues</li>
         </ul>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">Without Tools</span><p>User: "What is 1,984,135 × 9,343,116?"<br>→ Claude guesses (and is often wrong on large multiplications)</p></div>
+          <div class="example-box good"><span class="label">With Calculator Tool</span><p>Claude outputs a structured function_call → you execute the multiplication → Claude reads the exact result and responds correctly</p></div>
+        </div>
+        <div class="tip"><strong>Real-world use cases:</strong> web search, database queries, sending emails, reading files, checking stock prices, running code, calling any REST API. Tools are how Claude moves from answering questions to taking actions.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 See Claude output a function call</span>
@@ -898,7 +1047,9 @@ Think through your reasoning in &lt;thinking&gt; tags first, then output &lt;ans
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <p class="desc">RAG (Retrieval-Augmented Generation) fetches relevant documents at query time and adds them to Claude's context. This reduces hallucinations on factual questions and grounds answers in current data.</p>
+        <p class="desc">RAG (Retrieval-Augmented Generation) solves a fundamental problem: Claude's training data has a cutoff date, and it can't access your private data. RAG fixes this by fetching relevant documents at query time and inserting them into Claude's context window — so Claude answers from real, current, authoritative information instead of from memory.</p>
+        <h3>Why RAG?</h3>
+        <p class="desc">Without RAG, asking Claude about your internal docs, recent events, or niche topics risks hallucination. With RAG, Claude only needs to read and reason over the provided text — a much easier task than retrieving facts from training memory. This dramatically reduces fabrication and makes answers verifiable.</p>
         <h3>Pattern: Retrieve → Augment → Generate</h3>
         <div class="code-block">
           <div class="code-header"><span class="lang">Python</span><span>Basic RAG pattern</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
@@ -914,6 +1065,14 @@ PROMPT = <span class="fn">f</span><span class="str">"""Answer using only the inf
 
 If the answer is not in the context, say "I don't know"."""</span></code></pre>
         </div>
+        <h3>RAG in Practice</h3>
+        <ul>
+          <li><strong>Embeddings</strong> — encode documents and queries as vectors, then find the closest matches by cosine similarity</li>
+          <li><strong>Chunking</strong> — split long documents into smaller passages (500–1000 tokens) so the most relevant section can be retrieved</li>
+          <li><strong>Context window</strong> — inject retrieved passages into the prompt using <code>&lt;context&gt;</code> tags; Claude reads them, not memorizes them</li>
+          <li><strong>Strict grounding</strong> — always include "if the answer is not in the context, say I don't know" to prevent Claude from supplementing retrieved content with hallucinated facts</li>
+        </ul>
+        <div class="tip"><strong>In this playground:</strong> you can simulate RAG by pasting any document into the context field below and asking questions about it. Claude will answer strictly from what you provide.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Simulated RAG (paste your context)</span>
