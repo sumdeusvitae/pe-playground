@@ -432,13 +432,16 @@
 
 client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
 
-<span class="kw">def</span> <span class="fn">get_completion</span>(prompt: <span class="fn">str</span>, system: <span class="fn">str</span> = <span class="str">""</span>):
+<span class="kw">def</span> <span class="fn">get_completion</span>(prompt: <span class="fn">str</span>, system: <span class="fn">str</span> = <span class="str">""</span>, prefill: <span class="fn">str</span> = <span class="str">""</span>):
+    messages = [{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}]
+    <span class="kw">if</span> prefill:
+        messages.<span class="fn">append</span>({<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: prefill})
     message = client.messages.<span class="fn">create</span>(
         model=<span class="str">"claude-haiku-4-5-20251001"</span>,
         max_tokens=<span class="num">2000</span>,
         temperature=<span class="num">0.0</span>,
         system=system,
-        messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}]
+        messages=messages
     )
     <span class="kw">return</span> message.content[<span class="num">0</span>].text</code></pre>
         </div>
@@ -529,6 +532,7 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
+        <div class="tip" style="border-left-color:var(--accent2);background:rgba(139,124,248,.08)"><strong>"Show your prompt to a colleague — if they're confused, Claude is confused."</strong><br>This is the golden rule of clarity. If a smart person reading your prompt cold could misinterpret it, Claude will too.</div>
         <p class="desc">Claude is highly literal — it follows your instructions precisely. Think of it like a genie: you get exactly what you asked for, not necessarily what you meant. Vague requests produce hedged, generic responses. Specific, direct prompts produce focused, useful ones.</p>
         <h3>Why Claude Hedges</h3>
         <p class="desc">When given an ambiguous request, Claude defaults to covering all bases ("there are many perspectives on this...") rather than committing to one answer. This isn't a flaw — it's Claude being cautious under uncertainty. The fix is simple: remove the ambiguity explicitly in your prompt.</p>
@@ -590,11 +594,20 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
           <div class="example-box bad"><span class="label">No Role</span><p>System: (empty)<br>Result: generic, hedged response that hedges on edge cases</p></div>
           <div class="example-box good"><span class="label">With Role</span><p>System: "You are a Socratic tutor. Never give the answer directly — guide the student to it through questions."<br>Result: completely different interaction style</p></div>
         </div>
+        <h3>Where to Put the Role</h3>
+        <p class="desc">Role prompts can go in the <strong>system prompt</strong> (preferred for persistent identity across a whole session) <em>or</em> in the <strong>user message</strong> (useful for one-off tasks where no system prompt is set). Both work — the system prompt is just more reliable for maintaining the role across many turns.</p>
+        <h3>Audience Context Matters</h3>
+        <p class="desc">A role without audience context is still vague. Specifying <em>who Claude is speaking to</em> unlocks a second layer of adaptation — vocabulary, analogies, assumed knowledge level, and tone all shift.</p>
+        <div class="example-pair">
+          <div class="example-box bad"><span class="label">Vague Role</span><p>System: "You are a cat."<br><em>→ Claude may speak in cat-puns or third person. Unpredictable style.</em></p></div>
+          <div class="example-box good"><span class="label">Role + Audience</span><p>System: "You are a cat. You are talking to a group of skateboarders."<br><em>→ Claude adopts a cat persona AND uses skateboarding slang and references. Precisely targeted.</em></p></div>
+        </div>
         <h3>When Roles Are Most Effective</h3>
         <ul>
           <li><strong>Logic and math</strong> — "You are a logical reasoning engine" reduces hedging on problems that have clear answers</li>
           <li><strong>Domain expertise</strong> — medical, legal, financial, and technical questions benefit from specialized personas</li>
           <li><strong>Tone control</strong> — "warm and patient teacher" vs "terse Socratic tutor" produces dramatically different output styles</li>
+          <li><strong>Audience targeting</strong> — adding who Claude is speaking to (experts, children, beginners) changes vocabulary, depth, and assumptions</li>
           <li><strong>Consistency</strong> — essential in multi-turn apps where you need a stable voice across many interactions</li>
         </ul>
         <div class="tip"><strong>Tip:</strong> Combine role + goal: "You are X. Your job is to help users do Y." This anchors both identity and purpose, and tends to produce the best results.</div>
@@ -753,6 +766,21 @@ Show up at 6am tomorrow because I'm the CEO and I say so. No excuses.
           <div class="example-box bad"><span class="label">Without Thinking</span><p>Prompt: "Is 'This movie blew my mind with freshness. In unrelated news, I've lived under a rock since 1900.' — positive or negative?"<br><em>→ Claude may read surface-level and say positive.</em></p></div>
           <div class="example-box good"><span class="label">With Thinking</span><p>Prompt: "Write the best argument for positive and negative in separate tags, then give your final one-word answer."<br><em>→ Claude reasons through the irony and gets it right.</em></p></div>
         </div>
+        <h3>The Evidence-First Pattern</h3>
+        <p class="desc">For document-based tasks (Q&amp;A, classification, fact-checking), force Claude to extract evidence <em>before</em> drawing conclusions. This three-step structure dramatically reduces errors and hallucinations:</p>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Prompt Pattern</span><span>Extract → Reason → Answer</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code><span class="str">"""Read the document below and answer the question.
+
+1. Extract all relevant quotes in &lt;quotes&gt; tags.
+2. Reason through the evidence in &lt;reasoning&gt; tags.
+3. Give your final answer in &lt;answer&gt; tags.
+
+&lt;document&gt;{document}&lt;/document&gt;
+
+&lt;question&gt;{question}&lt;/question&gt;"""</span></code></pre>
+        </div>
+        <p class="desc">This pattern works because Claude must commit to evidence first — it can't easily contradict quotes it already wrote. It also makes Claude's reasoning auditable: you can check the quotes against the source document to catch errors.</p>
         <div class="tip"><strong>Note:</strong> Thinking tokens appear in the output and count toward your token usage. This is standard chain-of-thought prompting — separate from Anthropic's "Extended Thinking" API feature, which uses a dedicated reasoning parameter.</div>
         <div class="try-it">
           <div class="try-it-header">
@@ -795,11 +823,28 @@ Review: "This movie blew my mind with its freshness and originality. In totally 
         <h3>Few-Shot Best Practices</h3>
         <ul>
           <li><strong>2–5 examples</strong> is the sweet spot — too few loses the pattern, too many wastes tokens</li>
+          <li><strong>Wrap examples in <code>&lt;example&gt;</code> tags</strong> — this clearly separates the examples from the rest of your instructions and signals to Claude that these are demonstrations, not live inputs</li>
           <li><strong>Keep examples consistent</strong> — if your examples vary in format, the output will too</li>
           <li><strong>Cover edge cases</strong> — include an example that handles the tricky scenario you care most about</li>
           <li><strong>Use realistic data</strong> — synthetic examples that don't reflect real inputs reduce effectiveness</li>
           <li><strong>Order matters</strong> — Claude is most influenced by the last example; put your most representative one last</li>
         </ul>
+        <div class="code-block">
+          <div class="code-header"><span class="lang">Pattern</span><span>Examples wrapped in XML tags</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+          <pre><code><span class="str">"""Classify emails as URGENT or ROUTINE.
+
+&lt;example&gt;
+Email: "Server is down! Customers can't log in!"
+Category: URGENT
+&lt;/example&gt;
+
+&lt;example&gt;
+Email: "Can you add me to the weekly newsletter?"
+Category: ROUTINE
+&lt;/example&gt;
+
+Now classify: &lt;email&gt;{new_email}&lt;/email&gt;"""</span></code></pre>
+        </div>
         <div class="tip"><strong>Works great for:</strong> sentiment classification, tone matching, data extraction, Q&amp;A format, and any task where "show don't tell" applies.</div>
         <div class="try-it">
           <div class="try-it-header">
@@ -847,12 +892,13 @@ A:</textarea></div>
         <ul>
           <li><strong>"Only answer if you are certain"</strong> — explicit permission to abstain when unsure</li>
           <li><strong>"Say 'I don't have this information' if unsure"</strong> — gives Claude a specific phrase so it doesn't have to improvise a refusal</li>
+          <li><strong>Extract evidence first</strong> — ask Claude to pull relevant quotes from the source <em>before</em> answering: "Extract relevant quotes in <code>&lt;quotes&gt;</code> tags, then answer based only on those quotes." Claude can't easily contradict evidence it already committed to writing.</li>
           <li><strong>Provide the source data</strong> — use RAG (see 10.3) to give Claude a document to answer from, eliminating reliance on training memory</li>
           <li><strong>"Cite where you found this"</strong> — hallucinated sources are usually obvious and easy to catch</li>
           <li><strong>Use XML to isolate the question</strong> — wrapping the query in <code>&lt;question&gt;</code> tags signals Claude this is a specific factual query</li>
           <li><strong>Set temperature=0</strong> — reduces creative variation, which includes creative fabrication</li>
         </ul>
-        <div class="tip"><strong>Best practice:</strong> Stack multiple techniques together. "Answer only using the context below. If the answer is not in the context, say 'I don't know.' Do not speculate or fill in gaps."</div>
+        <div class="tip"><strong>Best practice:</strong> Stack multiple techniques together. For stubborn hallucination cases, combine: <strong>role prompting</strong> ("You are a precise factual assistant"), <strong>step-by-step reasoning</strong> ("think through this carefully"), and <strong>evidence extraction</strong> ("cite only from the source provided"). Each layer adds a guardrail.</div>
         <div class="try-it">
           <div class="try-it-header">
             <span>🔬 Anti-hallucination test</span>
@@ -885,14 +931,38 @@ If you don't know the answer or are uncertain about the precise figure, respond 
       </div>
       <div class="section-body">
         <p class="desc">Production prompts combine every technique from the previous lessons: a detailed role, explicit instructions, few-shot examples, XML-tagged input data, a specified output format, and constraints on uncertainty. The strategy is to <strong>start with everything, verify it works, then prune</strong> elements that don't add measurable value.</p>
-        <h3>Anatomy of a Complex Prompt</h3>
+        <h3>The 10-Element Prompt Template</h3>
+        <p class="desc">The original Anthropic tutorial defines 10 elements for a production-grade prompt. Not every prompt needs all 10 — but starting with all of them and pruning is better than building up from scratch.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+          <thead><tr style="background:rgba(255,255,255,.05);color:var(--text-dim);text-align:left"><th style="padding:8px 12px;border-bottom:1px solid var(--border)">#</th><th style="padding:8px 12px;border-bottom:1px solid var(--border)">Element</th><th style="padding:8px 12px;border-bottom:1px solid var(--border)">Placement</th></tr></thead>
+          <tbody>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">1</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Task context</strong> (role/goal)</td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">System — Early</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">2</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Tone context</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">System — Early (optional)</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">3</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Detailed task description + rules</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">System or User — Middle</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">4</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Examples</strong> (<code>&lt;example&gt;</code> tags)</td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">User — Middle</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">5</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Input data</strong> (XML tags)</td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">User — Middle</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">6</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Immediate task reminder</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">User — Late</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">7</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Step-by-step thinking instruction</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">User — Late</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">8</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Output format specification</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">User — Late</td></tr>
+            <tr><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--accent)">9</td><td style="padding:7px 12px;border-bottom:1px solid var(--border)"><strong>Prefill</strong></td><td style="padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim)">Assistant turn — End (optional)</td></tr>
+            <tr><td style="padding:7px 12px;color:var(--accent)">10</td><td style="padding:7px 12px"><strong>Input variables</strong> (<code>{VARIABLE}</code>)</td><td style="padding:7px 12px;color:var(--text-dim)">Throughout</td></tr>
+          </tbody>
+        </table>
+        <h3>Canonical Example 1 — Career Coach Chatbot</h3>
+        <p class="desc">Joe works at <em>AdAstra Careers</em>. His prompt structure:</p>
         <ul>
-          <li><strong>1. Role (system)</strong> — who Claude is and its primary goal for this application</li>
-          <li><strong>2. Task instructions</strong> — what to do, stated clearly and step by step</li>
-          <li><strong>3. Examples (few-shot)</strong> — 2–3 input → output pairs demonstrating the expected behavior</li>
-          <li><strong>4. Input data (XML)</strong> — the variable content to process, clearly separated from instructions</li>
-          <li><strong>5. Output format</strong> — exact structure of the response (XML tags, JSON schema, bullet count, length)</li>
-          <li><strong>6. Constraints</strong> — what to do when uncertain, what NOT to include, edge case handling</li>
+          <li><strong>System:</strong> "You are Joe, a friendly career coach at AdAstra Careers. Your goal is to help users land their dream job." <em>(role + goal + tone in one sentence)</em></li>
+          <li><strong>Examples:</strong> Edge-case examples for off-topic questions — "Q: What's the weather? A: I'm focused on careers — let me help you with job search instead." <em>(few-shot for boundary behavior)</em></li>
+          <li><strong>Input:</strong> Conversation history + current user question injected as <code>&lt;conversation&gt;</code> and <code>&lt;question&gt;</code> tags</li>
+          <li><strong>Output:</strong> Response wrapped in <code>&lt;response&gt;</code> tags for easy extraction</li>
+        </ul>
+        <h3>Canonical Example 2 — Legal Research Assistant</h3>
+        <p class="desc">A legal AI that cites its sources:</p>
+        <ul>
+          <li><strong>System:</strong> "You are an expert lawyer. Answer only based on the provided research. Do not speculate beyond what the sources support."</li>
+          <li><strong>Input:</strong> Legal research with numbered citation IDs injected as structured XML</li>
+          <li><strong>Step-by-step:</strong> "First extract <code>&lt;relevant_quotes&gt;</code> from the sources. Then write a 2-paragraph answer in <code>&lt;answer&gt;</code> tags, citing sources as [ID]."</li>
+          <li><strong>Output:</strong> Verifiable answer with inline citations — hallucinations are immediately visible as uncited claims</li>
         </ul>
         <h3>Build Up, Then Prune</h3>
         <p class="desc">Write a prompt that includes every element above. Test it against real inputs — including edge cases, unusual inputs, and adversarial inputs. Then remove elements one at a time and check whether quality drops. Keep only what earns its place. A simpler prompt is cheaper, faster, and easier to maintain.</p>
@@ -1009,6 +1079,7 @@ messages = [
           <div class="example-box bad"><span class="label">Without Tools</span><p>User: "What is 1,984,135 × 9,343,116?"<br>→ Claude guesses (and is often wrong on large multiplications)</p></div>
           <div class="example-box good"><span class="label">With Calculator Tool</span><p>Claude outputs a structured function_call → you execute the multiplication → Claude reads the exact result and responds correctly</p></div>
         </div>
+        <div class="tip"><strong>Intercept with stop_sequences:</strong> In the API, set <code>stop_sequences=["&lt;/function_calls&gt;"]</code> so generation halts the moment Claude finishes its tool call block. This lets your code parse the call cleanly before Claude tries to answer — no risk of Claude continuing past the tool invocation.</div>
         <div class="tip"><strong>Real-world use cases:</strong> web search, database queries, sending emails, reading files, checking stock prices, running code, calling any REST API. Tools are how Claude moves from answering questions to taking actions.</div>
         <div class="try-it">
           <div class="try-it-header">
@@ -1174,6 +1245,21 @@ The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, 
           <tr><td>Prompt Chaining</td><td>Multi-step workflows, self-verification</td><td>Inject <code>first_response</code> as assistant turn</td></tr>
           <tr><td>Tool Use</td><td>Calculations, DB queries, external APIs</td><td>Define XML schema → stop → inject results</td></tr>
           <tr><td>RAG</td><td>Factual questions, reducing hallucinations</td><td>Retrieve docs → add to <code>&lt;context&gt;</code> → answer</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:28px;font-size:15px;color:var(--text)">Troubleshooting Guide — Problem → Fix</h3>
+      <table class="cs-table" style="margin-top:12px;margin-bottom:28px">
+        <thead><tr><th>Problem</th><th>Best Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Wrong answer</td><td>Step-by-step thinking + evidence extraction (<code>&lt;quotes&gt;</code> first)</td></tr>
+          <tr><td>Wrong format</td><td>Add few-shot examples or use prefilling to force the format</td></tr>
+          <tr><td>Wrong tone / style</td><td>Role prompting + few-shot examples that demonstrate the exact style</td></tr>
+          <tr><td>Hallucinations</td><td>Give Claude an "out" (<em>"say I don't know if unsure"</em>) + require citations</td></tr>
+          <tr><td>Ambiguous input</td><td>XML tags to separate user data from instructions</td></tr>
+          <tr><td>Logic errors</td><td>Assign Claude an expert logic role + require visible step-by-step reasoning</td></tr>
+          <tr><td>Too verbose / rambling</td><td>Specify exact length: "respond in exactly one sentence" or "max 3 bullets"</td></tr>
+          <tr><td>Ignores instructions</td><td>Move key rule to end of user message (closest to generation) + repeat with prefill</td></tr>
         </tbody>
       </table>
 
