@@ -111,7 +111,7 @@
   #sidebar a.active { color: white; background: rgba(217,119,87,.12); border-left-color: var(--accent); }
   #sidebar a .num { font-size: 11px; background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 10px; color: #8a9bbf !important; font-weight: 600; min-width: 28px; text-align: center; border: 1px solid rgba(255,255,255,.1); }
   #sidebar a.active .num { background: rgba(217,119,87,.2); color: var(--accent) !important; border-color: rgba(217,119,87,.3); }
-  .section-label { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent3); font-weight: 700; opacity: .8; }
+  .section-label { padding: 14px 20px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.3); font-weight: 700; }
 
   /* ── MAIN ── */
   #main { margin-left: var(--sidebar-w); flex: 1; padding-top: 40px; min-width: 0; }
@@ -193,10 +193,10 @@
   .kw { color: #c084fc; } .str { color: #86efac; } .cmt { color: #6b7280; font-style: italic; } .fn { color: #60a5fa; } .num { color: #fbbf24; } .tag-c { color: #f97316; }
 
   /* ── TIPS/WARN ── */
-  .tip { background: rgba(92,200,160,.06); border-left: 3px solid var(--accent3); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
-  .tip strong { color: var(--accent3); }
-  .warn { background: rgba(217,119,87,.06); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
-  .warn strong { color: var(--accent); }
+  .tip { background: rgba(255,255,255,.03); border-left: 3px solid rgba(255,255,255,.15); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
+  .tip strong { color: var(--text); }
+  .warn { background: rgba(255,255,255,.03); border-left: 3px solid rgba(255,255,255,.15); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
+  .warn strong { color: var(--text); }
 
   /* ── BEFORE/AFTER ── */
   .example-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
@@ -359,6 +359,9 @@
     <div class="privacy-note">
       🔒 <strong>Privacy guarantee:</strong> Your key is stored only in your browser's <code>localStorage</code>. It is never sent to any server other than <code>api.anthropic.com</code>. This site has no backend — you can inspect the source to verify.
     </div>
+    <div class="privacy-note" style="margin-top:8px;opacity:.75">
+      💻 <strong>Prefer fully local?</strong> <a href="https://github.com/sumdeusvitae/pe-playground" target="_blank" rel="noopener" style="color:var(--accent2)">Download the HTML file from GitHub</a> and open it directly in your browser — no server involved at all.
+    </div>
     <label>API Key</label>
     <input type="password" id="key-input" placeholder="sk-ant-api03-…" autocomplete="off" onkeydown="if(event.key==='Enter')saveKey()">
     <div class="modal-actions">
@@ -388,8 +391,14 @@
   <a href="#s10_2"><span class="num">10.2</span>Tool Use</a>
   <a href="#s10_3"><span class="num">10.3</span>Search & RAG</a>
   <div class="section-label">Tools</div>
-  <a href="#playground-section"><span class="num">▶</span>Free Playground</a>
+  <a href="#playground-section"><span class="num">▶</span>Playground</a>
   <a href="#cheatsheet"><span class="num">★</span>Cheat Sheet</a>
+  <div style="padding:18px 20px 6px;border-top:1px solid var(--border);margin-top:12px">
+    <a href="https://github.com/sumdeusvitae/pe-playground/tree/master?tab=readme-ov-file#prompt-engineering-interactive-playground" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;transition:color .2s" onmouseover="this.style.color='rgba(255,255,255,.7)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+  </div>
 </nav>
 
 <!-- MAIN -->
@@ -532,7 +541,7 @@ client = anthropic.<span class="fn">Anthropic</span>(api_key=API_KEY)
         <div class="toggle-btn">▾</div>
       </div>
       <div class="section-body">
-        <div class="tip" style="border-left-color:var(--accent2);background:rgba(139,124,248,.08)"><strong>"Show your prompt to a colleague — if they're confused, Claude is confused."</strong><br>This is the golden rule of clarity. If a smart person reading your prompt cold could misinterpret it, Claude will too.</div>
+        <div class="tip"><strong>"Show your prompt to a colleague — if they're confused, Claude is confused."</strong><br>This is the golden rule of clarity. If a smart person reading your prompt cold could misinterpret it, Claude will too.</div>
         <p class="desc">Claude is highly literal — it follows your instructions precisely. Think of it like a genie: you get exactly what you asked for, not necessarily what you meant. Vague requests produce hedged, generic responses. Specific, direct prompts produce focused, useful ones.</p>
         <h3>Why Claude Hedges</h3>
         <p class="desc">When given an ambiguous request, Claude defaults to covering all bases ("there are many perspectives on this...") rather than committing to one answer. This isn't a flaw — it's Claude being cautious under uncertainty. The fix is simple: remove the ambiguity explicitly in your prompt.</p>
@@ -1170,9 +1179,9 @@ The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars in Paris, 
       </div>
     </div>
 
-    <!-- ══ FREE PLAYGROUND ══ -->
+    <!-- ══ PLAYGROUND ══ -->
     <div id="playground-section">
-      <h2>Free <span>Playground</span></h2>
+      <h2><span>Playground</span></h2>
       <p class="subtitle">Experiment with any prompt. All fields are editable. Your key stays in localStorage — it never touches our servers.</p>
       <div class="pg-grid">
         <div class="pg-field">
